@@ -1,0 +1,155 @@
+I'm importing an existing Mission Control dashboard app. This is a 
+space station monitoring interface for my AI agent crew. The app has 
+already had one UI enhancement pass — keep building on that foundation.
+
+Stack: TanStack Start + React 19 + Vite + Tailwind CSS v4 + shadcn/ui
+
+═══════════════════════════════════
+WHAT EXISTS NOW (from the last pass)
+═══════════════════════════════════
+
+- Connected floorplan — 4 rooms (Command HQ, Security Bay, Engineering, 
+  Archive) linked by a glowing hub and doorways
+- Agents walk between rooms periodically along corridors
+- Bigger, desynced sprite breathing animations
+- Page transitions with subtle slide-in effect
+- Dark space theme (#12182A), violet/gold/cyan/pink agent accents
+- 4 crew: 🐒 Space Monkey, 🥷🏽 Life Support Officer, 🔧 Systems Engineer, 
+  📚 Station Archivist
+
+═══════════════════════════════════
+BUG FIXES FIRST
+═══════════════════════════════════
+
+1. DUPLICATE SPRITES: When an agent walks to another room, the original 
+   sprite is left behind at their home room while a duplicate walks. 
+   There should only be ONE sprite per agent. When they leave a room, 
+   that room should show as empty (or with a subtle "away" indicator 
+   like a dimmed desk/chair). When they arrive, they appear in the 
+   target room. No duplicates. No static leftovers. One agent = one 
+   sprite that moves.
+
+2. RANDOM BLUE LIGHT: There's a blue glowing element in the center of 
+   the floorplan where the rooms connect. It serves no purpose — no 
+   interaction, no status indication, just a glowing blue orb. Either 
+   remove it entirely, or replace it with something subtle and purposeful 
+   like a dim floor lighting strip or soft doorway glow. Not a bright 
+   blue orb.
+
+═══════════════════════════════════
+WHAT I NEED YOU TO ADD
+═══════════════════════════════════
+
+1. ANIMATED ROOM INTERIORS
+   Make the pixel-art room backgrounds feel alive:
+
+   COMMAND HQ (Space Monkey):
+   - Holo star map on central table slowly rotating (60s full rotation)
+   - 3 wall monitors cycling through different display states (staggered 
+     timing so they don't sync)
+   - Status LEDs blinking at random intervals (15-30s)
+   - Coffee mug with gentle steam animation
+
+   SECURITY BAY (Life Support Officer):
+   - Radar sweep with subtle glow at the sweep line (more visible)
+   - Camera feed panels cycling through 3 different views every 6 seconds
+   - Alert indicator occasionally flashing amber (random 20-40s intervals)
+   - Scrolling data on a terminal panel
+
+   ENGINEERING (Systems Engineer):
+   - Soldering iron sparking at the workbench (random 3-8s intervals, 
+     brief bright flash)
+   - 3D printer or fabricator with small print bed animation
+   - Holographic blueprints slowly rotating above central work table
+   - Cyan accent lights pulsing gently
+
+   ARCHIVE (Station Archivist):
+   - 3 floating lanterns with independent gentle flicker (2-4s cycles, 
+     never synced)
+   - 4-5 dust motes drifting slowly upward in light beams
+   - Data crystals on shelves occasionally pulsing with glow
+   - A book occasionally sliding out and back on the shelf
+
+   All room animations must be:
+   - Subtle — background detail, not the main event
+   - GPU-composited (transform and opacity only)
+   - Paused when tab is hidden
+
+2. EMPTY & ERROR STATE CAMEOS
+   Replace generic empty states with character moments:
+
+   EMPTY STATES:
+   - No tasks: "Station quiet. Crew playing cards in the mess hall." 
+     with a small card table icon
+   - No incidents: "All systems nominal. Life Support is bored 
+     (that's a good thing)."
+   - No documents: "Nothing here yet. The Archivist is waiting for 
+     your first entry." with a small book icon
+   - No activity: "Quiet shift. Even the stars are taking a break."
+   - No memory entries: "The ship's log is empty. The Archivist 
+     recommends writing things down."
+
+   ERROR STATES:
+   - Page load failure: "Houston, we have a problem" with subtle 
+     red pulse on the affected area
+   - Data unavailable: "Sensors offline. Life Support is investigating."
+   - Route not found: "This corridor doesn't exist. Space Monkey 
+     suggests turning back."
+
+   Each cameo should:
+   - Be a single line of text with personality
+   - Reference the relevant crew member
+   - Appear in the empty state area of the affected page
+   - Match the station's tone — calm, slightly playful, competent
+
+3. STATION MOOD LIGHTING
+   The station's ambient lighting should reflect its state:
+
+   CALM (default — no active tasks, no incidents):
+   - Neutral cool lighting
+   - Subtle starfield twinkle
+   - "All systems nominal" feel
+
+   BUSY (active tasks, agents working):
+   - Slightly warmer tone
+   - Slightly brighter overall
+   - Subtle energy in the air
+
+   ALERT (open P1/P2 incidents, errors, mount down):
+   - Subtle red/warm tint on the affected room(s)
+   - Station-wide subtle pulse if critical
+   - Clears automatically when incident resolves
+
+   CELEBRATION (all tasks just completed):
+   - Brief sparkle or golden shimmer across the station
+   - Lasts ~3 seconds then fades back to calm
+   - "Mission complete" feel
+
+   Implementation: a subtle overlay or background tint that transitions 
+   smoothly between states (1-2s transition). Should be barely noticeable 
+   in calm state, more present in alert state.
+
+4. TASK COMPLETION CELEBRATION
+   When the last active task moves to Done:
+
+   - A subtle sparkle or golden shimmer sweeps across the Agent Office
+   - Brief duration (~3 seconds)
+   - The station mood shifts briefly to celebration then back to calm
+   - Small visual flourish — confetti particles, shooting star, or 
+     golden pulse
+   - Does NOT repeat if tasks were already all done
+   - Only triggers on the transition from "had active tasks" to 
+     "zero active tasks"
+
+═══════════════════════════════════
+CONSTRAINTS
+═══════════════════════════════════
+
+- Keep the existing stack — no framework changes
+- Do NOT change data connections — focus on visual layer only
+- GPU-composited animations (transform + opacity only)
+- 60fps target, pause animations when tab is hidden
+- Match existing dark theme (#12182A) and agent accent colors 
+  (violet/gold/cyan/pink)
+- Subtle, atmospheric, cinematic — not noisy or distracting
+- The station should feel like a quiet night on a real space station
