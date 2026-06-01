@@ -76,7 +76,7 @@ export function AppSidebar() {
           {CREW.map(member => (
             <div key={member.id}
               className={cn("flex items-center gap-2 rounded-md px-1.5 py-1 transition-colors cursor-default", ACCENT_CLASSES[member.id])}>
-              <img src={member.sprites.idle} alt={member.name} className="w-6 h-6 object-contain shrink-0" style={{ imageRendering: "pixelated" }} />
+              <span className="shrink-0 text-base leading-none">{member.emoji}</span>
               <div className="min-w-0">
                 <div className="font-medium text-[10px] text-sidebar-foreground/80 leading-tight truncate">{member.name}</div>
                 <div className="font-mono text-[8px] text-sidebar-foreground/40 leading-tight truncate">{member.shortRole}</div>

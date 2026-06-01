@@ -5,8 +5,10 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { RoomCanvas } from "./RoomCanvas";
 import { RoomAmbient } from "./RoomAmbient";
+import { CrewSprite } from "./CrewSprite";
 import type { AgentActivity } from "@/lib/station-state";
 import type { RoomType } from "./RoomCanvas";
+import type { SpritePose } from "@/lib/crew-sprites";
 
 const ROOM_TYPE_MAP: Record<string, RoomType> = {
   command: "command", security: "security", workshop: "workshop", archive: "archive",
@@ -23,7 +25,6 @@ interface StationRoomProps {
   agentId: string;
   agentName: string;
   agentRole: string;
-  agentSprite: string;
   agentActivity: AgentActivity;
   agentPos: { xPct: number; yPct: number };
   monitors: { xPct: number; yPct: number; w: number; h: number; label?: string }[];
@@ -64,7 +65,7 @@ function agentStateFromActivity(activity: AgentActivity, isSleeping?: boolean, i
 
 export function StationRoom({
   roomId, label, bgImage, accent, accentHue, agentId, agentName, agentRole,
-  agentSprite, agentActivity, agentPos, monitors, isAlertActive, useCanvas,
+  agentActivity, agentPos, monitors, isAlertActive, useCanvas,
   statusText, currentTaskName, lastActivityMinutes, isSleeping, isWalking,
   walkFromPos, hasCollaborator, collaboratorPos, sharedTaskName,
   isAway = false,
@@ -147,6 +148,11 @@ export function StationRoom({
 
   const spriteAnimClass = isWorking ? "agent-working" : isAsleep ? "agent-sleeping" : isWalk ? "agent-walking" : agentState === "thinking" ? "agent-thinking" : "agent-idle";
 
+  const spritePose: SpritePose = agentState === "sleeping" ? "sleep"
+    : agentState === "walking" ? "walk"
+    : agentState === "collaborating" ? "collab"
+    : agentState as SpritePose;
+
   return (
     <div className="relative overflow-hidden" data-agent-id={agentId}>
       <div className="relative">
@@ -189,10 +195,13 @@ export function StationRoom({
           pointerEvents: "none",
         }}>
           <div className={spriteAnimClass}>
-            <img src={agentSprite} alt={agentName} className="w-20 h-20 object-contain" style={{
-              imageRendering: "pixelated",
-              filter: isAsleep ? "brightness(0.6)" : isWorking ? `drop-shadow(0 0 4px ${accent}60)` : undefined,
-            }} />
+            <CrewSprite
+              agentId={agentId}
+              pose={spritePose}
+              displayWidth={160}
+              displayHeight={120}
+              filter={isWorking ? `drop-shadow(0 0 4px ${accent}90)` : undefined}
+            />
           </div>
 
           {agentState === "thinking" && (

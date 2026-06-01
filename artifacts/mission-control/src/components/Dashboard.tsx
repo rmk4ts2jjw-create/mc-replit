@@ -158,7 +158,7 @@ export function Dashboard({ liveData }: DashboardProps) {
               : status === "away" ? "text-muted-foreground/40" : "text-muted-foreground/60";
             return (
               <div key={member.id} className="flex items-center gap-3 px-4 py-2">
-                <img src={member.sprites.idle} alt={member.name} className="w-8 h-8 object-contain shrink-0" style={{ imageRendering: "pixelated" }} />
+                <span className="shrink-0 text-xl leading-none">{member.emoji}</span>
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium text-foreground/80">{member.name}</div>
                   <div className="text-[9px] text-muted-foreground">{member.shortRole}</div>

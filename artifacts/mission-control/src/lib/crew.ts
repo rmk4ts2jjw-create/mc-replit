@@ -1,23 +1,4 @@
-import monkeyIdle from "@/assets/sprite-monkey-idle-4x-v2.png";
-import monkeyWorking from "@/assets/sprite-monkey-working-4x-v2.png";
-import monkeyWalking from "@/assets/sprite-monkey-walking-4x-v2.png";
-import lifesupportIdle from "@/assets/sprite-lifesupport-idle-4x-v2.png";
-import lifesupportWorking from "@/assets/sprite-lifesupport-working-4x-v2.png";
-import lifesupportWalking from "@/assets/sprite-lifesupport-walking-4x-v2.png";
-import engineerIdle from "@/assets/sprite-engineer-idle-4x-v2.png";
-import engineerWorking from "@/assets/sprite-engineer-working-4x-v2.png";
-import engineerWalking from "@/assets/sprite-engineer-walking-4x-v2.png";
-import archivistIdle from "@/assets/sprite-archivist-idle-4x-v2.png";
-import archivistWorking from "@/assets/sprite-archivist-working-4x-v2.png";
-import archivistWalking from "@/assets/sprite-archivist-walking-4x-v2.png";
-
 export type CrewStatus = "active" | "standby" | "ondemand" | "error";
-
-export interface Sprites {
-  idle: string;
-  working: string;
-  walking: string;
-}
 
 export interface CrewMember {
   id: string;
@@ -30,7 +11,6 @@ export interface CrewMember {
   mode: "Always ON" | "ON-DEMAND";
   status: CrewStatus;
   avatar: string;
-  sprites: Sprites;
   accent: "violet" | "pink" | "cyan" | "warning";
 }
 
@@ -45,8 +25,7 @@ export const CREW: CrewMember[] = [
     model: "claude-sonnet-4-6",
     mode: "Always ON",
     status: "active",
-    avatar: monkeyIdle,
-    sprites: { idle: monkeyIdle, working: monkeyWorking, walking: monkeyWalking },
+    avatar: "🐒",
     accent: "violet",
   },
   {
@@ -59,8 +38,7 @@ export const CREW: CrewMember[] = [
     model: "claude-sonnet-4-6",
     mode: "Always ON",
     status: "active",
-    avatar: lifesupportIdle,
-    sprites: { idle: lifesupportIdle, working: lifesupportWorking, walking: lifesupportWalking },
+    avatar: "🥷",
     accent: "pink",
   },
   {
@@ -73,8 +51,7 @@ export const CREW: CrewMember[] = [
     model: "claude-sonnet-4-6",
     mode: "ON-DEMAND",
     status: "ondemand",
-    avatar: engineerIdle,
-    sprites: { idle: engineerIdle, working: engineerWorking, walking: engineerWalking },
+    avatar: "🔧",
     accent: "cyan",
   },
   {
@@ -87,8 +64,7 @@ export const CREW: CrewMember[] = [
     model: "claude-sonnet-4-6",
     mode: "ON-DEMAND",
     status: "ondemand",
-    avatar: archivistIdle,
-    sprites: { idle: archivistIdle, working: archivistWorking, walking: archivistWalking },
+    avatar: "📚",
     accent: "warning",
   },
 ];

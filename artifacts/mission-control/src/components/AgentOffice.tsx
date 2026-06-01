@@ -1,6 +1,5 @@
 // AgentOffice — wires live data into a StationRoom for one crew member.
 
-import { useMemo } from "react";
 import { StationRoom } from "./StationRoom";
 import type { CrewMember } from "@/lib/crew";
 import type { LiveAgentStatus } from "@/lib/live-data";
@@ -81,11 +80,6 @@ export function AgentOffice({ crew, liveStatus, isAway, celebratingTaskId }: Age
   const accentH  = ACCENT_HUES[crew.id] ?? 200;
   const taskName = liveStatus?.currentAction;
 
-  const spriteToUse = useMemo(() => {
-    if (activity === "working" || activity === "collaborating") return crew.sprites.working;
-    return crew.sprites.idle;
-  }, [activity, crew.sprites]);
-
   return (
     <StationRoom
       roomId={config.roomId}
@@ -96,7 +90,6 @@ export function AgentOffice({ crew, liveStatus, isAway, celebratingTaskId }: Age
       agentId={crew.id}
       agentName={crew.name}
       agentRole={crew.shortRole}
-      agentSprite={spriteToUse}
       agentActivity={activity}
       agentPos={config.agentPos}
       monitors={config.monitors}

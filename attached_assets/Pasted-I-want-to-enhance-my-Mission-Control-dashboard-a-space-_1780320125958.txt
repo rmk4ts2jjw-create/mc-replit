@@ -1,0 +1,111 @@
+I want to enhance my Mission Control dashboard — a space-station-themed 
+web app that serves as the front-end for my OpenClaw AI agent system. 
+This is an existing project. I'm adding new pixel-art agent sprites and 
+improving the Agent Office visual experience.
+
+═══════════════════════════════
+WHAT I'M ADDING
+═══════════════════════════════
+
+1. NEW AGENT SPRITES
+   I have 4 new pixel-art character sprite sheets, one per agent. Each 
+   sprite sheet has 3 poses: idle, working, and walking. The agents are:
+   - Space Monkey 🐒 — Mission Director (violet/purple theme)
+   - Life Support Officer 🥷🏽 — Infrastructure Controller (pink theme)
+   - Systems Engineer 🔧 — Coder/Builder (cyan/teal theme)
+   - Station Archivist 📚 — Memory & Knowledge (amber/gold theme)
+
+   Replace all existing sprite placeholders with these new sprites. 
+   Each agent should display:
+   - Idle pose when at their station with no active tasks
+   - Working pose when actively working on a task
+   - Walking pose when moving between rooms
+
+2. AGENT OFFICE / SPACESTATION VIEW
+   A living 2D pixel-art view showing 4 connected rooms (Command HQ, 
+   Security Bay, Engineering, Archive) in a continuous floorplan with 
+   no gaps between rooms. Each agent occupies their home room:
+   - Space Monkey → Command HQ
+   - Life Support Officer → Security Bay
+   - Systems Engineer → Engineering
+   - Station Archivist → Archive
+
+   The view should feel like looking down on a living settlement — 
+   like Age of Empires, but for a space station. Agents are always 
+   doing something, even when idle.
+
+3. CREW VISITS — Agents periodically walk across the hub corridor 
+   to visit another room. Show EN ROUTE / VISITING labels and path 
+   dots along their walking route. When an agent visits another room, 
+   their static sprite hides so there's no duplicate.
+
+4. STATION MOOD LIGHTING — A subtle pulsing tint wraps the entire 
+   floorplan. The colour and speed shift based on station state:
+   - Calm (all systems nominal): slow violet pulse
+   - Busy (tasks in progress): moderate amber pulse
+   - Alert (incidents open): faster red pulse
+   - Critical (P1 incidents): urgent red pulse
+
+5. CELEBRATION OVERLAY — Confetti + sweep flash animation that fires 
+   when all tasks are moved to Done. A small visual reward that makes 
+   the station feel alive.
+
+6. EMPTY STATE CAMEOS — Themed holding states for empty panels (no 
+   incidents, no tasks, no activity) showing pixel-art cameos of the 
+   relevant agent.
+
+═══════════════════════════════
+VISUAL STYLE
+═══════════════════════════════
+
+- Dark space-station theme (#12182A background)
+- Pixel art aesthetic throughout
+- Color-coded agents and rooms:
+  - Command HQ: violet/purple accents
+  - Security Bay: pink/magenta accents
+  - Engineering: cyan/teal accents
+  - Archive: amber/gold accents
+- Status indicators: green dot (active), amber (standby), grey (away)
+- Clean, modern sci-fi UI — not cluttered, not cartoonish
+- The station should feel alive — ambient animations, subtle movement
+
+═══════════════════════════════
+BUG FIXES FROM PREVIOUS BUILD
+═══════════════════════════════
+
+- Canvas doesn't understand OKLCH colors — convert all canvas accent 
+  colours to HSL before drawing
+- Duplicate sprites when agents are walking — track which agent is 
+  being shown by the walking overlay and hide the static sprite
+
+═══════════════════════════════
+TECHNICAL NOTES
+═══════════════════════════════
+
+- This is a TanStack Start + React 19 + Vite project
+- Styling: Tailwind CSS v4 + shadcn/ui
+- The Agent Office uses canvas-based rendering for rooms
+- Sprites are PNG files with transparent backgrounds
+- The build runs on localhost:3000 via bun
+- All data comes from the OpenClaw workspace filesystem — no mock data
+- The project lives at ~/.openclaw/workspace/mission-control-dashboard/
+
+═══════════════════════════════
+WHAT TO BUILD
+═══════════════════════════════
+
+1. Replace all 12 sprite files (3 poses × 4 agents) with the new 
+   pixel art
+2. Update the Agent Office to use new sprites with pose-switching 
+   based on agent state
+3. Ensure the continuous 4-room floorplan renders correctly with 
+   no gaps and proper room backgrounds
+4. Add crew visits with walking animations, EN ROUTE labels, and 
+   path dots
+5. Add station mood lighting that pulses based on station state
+6. Add celebration overlay for task completion
+7. Add empty state cameos for vacant panels
+8. Fix OKLCH → HSL conversion for all canvas colours
+9. Fix duplicate sprite bug during crew visits
+10. Keep everything else working — Tasks, Scheduler, Incidents, 
+    Settings, Teams pages untouched

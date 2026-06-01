@@ -1,9 +1,10 @@
 // StationFloorplan — continuous 2×2 floorplan with hallway overlay.
 // Bug fix: CrewVisits reports the visiting agentId so home rooms can hide their sprite.
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { motion } from "framer-motion";
 import { CREW } from "@/lib/crew";
+import { CrewSprite } from "./CrewSprite";
 
 type RoomId = "command" | "security" | "workshop" | "archive";
 
@@ -27,7 +28,6 @@ const HUB = { x: 50, y: 50 };
 interface VisitorState {
   id: string;
   agentId: string;
-  sprite: string;
   from: RoomId;
   to: RoomId;
   phase: "outbound" | "stay" | "return";
@@ -165,11 +165,6 @@ interface CrewVisitsProps {
 
 function CrewVisits({ active, onVisitorChange }: CrewVisitsProps) {
   const [visitor, setVisitor] = useState<VisitorState | null>(null);
-  const sprites = useMemo(() => {
-    const map: Record<string, { walking: string; idle: string }> = {};
-    CREW.forEach(c => { map[c.id] = { walking: c.sprites.walking, idle: c.sprites.idle }; });
-    return map;
-  }, []);
 
   useEffect(() => {
     if (!active) return;
@@ -183,10 +178,9 @@ function CrewVisits({ active, onVisitorChange }: CrewVisitsProps) {
         const from = AGENT_HOME[agentId];
         const others = ROOM_KEYS.filter(r => r !== from);
         const to = others[Math.floor(Math.random() * others.length)];
-        const sprite = sprites[agentId]?.walking || sprites[agentId]?.idle || "";
         const id = `${agentId}-${Date.now()}`;
 
-        setVisitor({ id, agentId, sprite, from, to, phase: "outbound" });
+        setVisitor({ id, agentId, from, to, phase: "outbound" });
         onVisitorChange(agentId); // agent is now away from home room
 
         // outbound → stay → return → cleanup
@@ -216,7 +210,7 @@ function CrewVisits({ active, onVisitorChange }: CrewVisitsProps) {
       onVisitorChange(null);
       document.removeEventListener("visibilitychange", onVis);
     };
-  }, [active, sprites, onVisitorChange]);
+  }, [active, onVisitorChange]);
 
   if (!visitor) return null;
 
@@ -232,7 +226,7 @@ function CrewVisits({ active, onVisitorChange }: CrewVisitsProps) {
         initial={false}
         style={{ left: `${dest.x}%`, top: `${dest.y}%`, x: "-50%", y: "-50%" }}>
         <div className="agent-idle">
-          <img src={visitor.sprite} alt="" className="h-14 w-14 object-contain drop-shadow-[0_0_6px_oklch(0.78_0.14_200/0.45)]" style={{ imageRendering: "pixelated" }} />
+          <CrewSprite agentId={visitor.agentId} pose="idle" displayWidth={96} displayHeight={72} />
         </div>
         <div className="absolute left-1/2 top-full -translate-x-1/2 mt-0.5 whitespace-nowrap rounded bg-background/70 px-1 py-[1px] font-mono text-[7px] tracking-wider text-cyan-accent">VISITING</div>
       </motion.div>
@@ -246,7 +240,7 @@ function CrewVisits({ active, onVisitorChange }: CrewVisitsProps) {
       animate={{ left: path.map(p => `${p.x}%`), top: path.map(p => `${p.y}%`) }}
       transition={{ duration: 2.4, ease: "easeInOut", times: [0, 0.25, 0.5, 0.75, 1] }}>
       <div className="agent-walking">
-        <img src={visitor.sprite} alt="" className="h-14 w-14 object-contain drop-shadow-[0_0_6px_oklch(0.78_0.14_200/0.55)]" style={{ imageRendering: "pixelated" }} />
+        <CrewSprite agentId={visitor.agentId} pose="walk" displayWidth={96} displayHeight={72} />
       </div>
       <div className="absolute left-1/2 -top-3 -translate-x-1/2 whitespace-nowrap rounded bg-background/70 px-1 py-[1px] font-mono text-[7px] tracking-wider text-cyan-accent">EN ROUTE</div>
     </motion.div>
