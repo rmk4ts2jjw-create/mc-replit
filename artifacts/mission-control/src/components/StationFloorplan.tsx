@@ -1,7 +1,7 @@
 // StationFloorplan — continuous 2×2 floorplan with hallway overlay.
 // Bug fix: CrewVisits reports the visiting agentId so home rooms can hide their sprite.
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { motion } from "framer-motion";
 import { CREW } from "@/lib/crew";
 import { CrewSprite } from "./CrewSprite";
@@ -166,6 +166,12 @@ interface CrewVisitsProps {
 function CrewVisits({ active, onVisitorChange }: CrewVisitsProps) {
   const [visitor, setVisitor] = useState<VisitorState | null>(null);
 
+  // Stable ref so the effect never re-runs just because the callback identity changed.
+  // Re-running the effect would trigger the cleanup which calls onVisitorChange(null),
+  // immediately resetting isAway=false and creating a duplicate sprite.
+  const cbRef = useRef(onVisitorChange);
+  useEffect(() => { cbRef.current = onVisitorChange; });
+
   useEffect(() => {
     if (!active) return;
     let cancelled = false;
@@ -181,19 +187,19 @@ function CrewVisits({ active, onVisitorChange }: CrewVisitsProps) {
         const id = `${agentId}-${Date.now()}`;
 
         setVisitor({ id, agentId, from, to, phase: "outbound" });
-        onVisitorChange(agentId); // agent is now away from home room
+        cbRef.current(agentId); // hide home-room sprite for entire visit duration
 
-        // outbound → stay → return → cleanup
+        // outbound (2.4s walk) → stay (3.5s) → return (2.4s walk) → cleanup
         setTimeout(() => {
-          if (!cancelled) setVisitor(v => v && v.id === id ? { ...v, phase: "stay" } : v);
+          if (!cancelled) setVisitor(v => v?.id === id ? { ...v, phase: "stay" } : v);
         }, 2400);
         setTimeout(() => {
-          if (!cancelled) setVisitor(v => v && v.id === id ? { ...v, phase: "return" } : v);
+          if (!cancelled) setVisitor(v => v?.id === id ? { ...v, phase: "return" } : v);
         }, 2400 + 3500);
         setTimeout(() => {
           if (cancelled) return;
-          setVisitor(v => (v && v.id === id ? null : v));
-          onVisitorChange(null); // agent back home
+          setVisitor(v => v?.id === id ? null : v);
+          cbRef.current(null); // restore home-room sprite only after walk-back completes
           scheduleNext(12000 + Math.random() * 12000);
         }, 2400 + 3500 + 2400 + 200);
       }, delay);
@@ -201,16 +207,25 @@ function CrewVisits({ active, onVisitorChange }: CrewVisitsProps) {
     };
 
     const initial = scheduleNext(4000 + Math.random() * 4000);
-    const onVis = () => { if (document.hidden) { cancelled = true; onVisitorChange(null); } };
+    const onVis = () => {
+      if (document.hidden) {
+        cancelled = true;
+        setVisitor(null);
+        cbRef.current(null);
+      }
+    };
     document.addEventListener("visibilitychange", onVis);
 
     return () => {
       cancelled = true;
       clearTimeout(initial);
-      onVisitorChange(null);
+      // Note: do NOT call cbRef.current(null) here — cleanup fires whenever
+      // the parent re-renders (changing callback identity), which would reset
+      // isAway prematurely. Instead, the visit completion timeout is the sole
+      // owner of the isAway=false transition.
       document.removeEventListener("visibilitychange", onVis);
     };
-  }, [active, onVisitorChange]);
+  }, [active]); // ← only re-run when visits are toggled on/off, never on callback change
 
   if (!visitor) return null;
 
@@ -257,9 +272,11 @@ export function StationFloorplan({
   enableVisits?: boolean;
   onVisitingAgentChange?: (agentId: string | null) => void;
 }) {
-  const handleVisitorChange = (agentId: string | null) => {
+  // useCallback keeps identity stable so CrewVisits' cbRef sync is a no-op re-render,
+  // and never accidentally re-triggers the visits effect.
+  const handleVisitorChange = useCallback((agentId: string | null) => {
     onVisitingAgentChange?.(agentId);
-  };
+  }, [onVisitingAgentChange]);
 
   return (
     <div className="relative">
