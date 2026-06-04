@@ -1,2 +1,2 @@
-- [Mission Control port setup](mission-control-port.md) — artifact uses port 26054 which Replit workflow tool won't health-check; dev script must bake in PORT/BASE_PATH defaults.
-- [Canvas OKLCH colors](canvas-oklch.md) — browser Canvas API rejects oklch() color strings; always use hsla()/rgba() for canvas gradient and fillStyle operations.
+- [Mission Control workload system](workload-system.md) — WorkloadLevel drives room energy; levelRef pattern for RoomCanvas; no oklch in canvas.
+- [Mission Control sim activity](sim-activity.md) — useActivitySim merges with live data via Math.max to keep rooms visually busy.

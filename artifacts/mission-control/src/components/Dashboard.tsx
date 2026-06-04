@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { Link } from "wouter";
 import { motion } from "framer-motion";
 import { CREW } from "@/lib/crew";
@@ -9,6 +9,7 @@ import { AmbientStation } from "./AmbientStation";
 import { TaskFlowSignals } from "./TaskFlowSignals";
 import { EmptyCameo } from "./PageHeader";
 import { getRotationFact } from "@/lib/delights";
+import { useActivitySim, tasksToLevel, type SimAgentId } from "@/lib/room-energy";
 
 const MOOD_LABEL: Record<string, string> = {
   calm: "STATION CALM", busy: "ALL HANDS BUSY", alert: "ALERT ACTIVE", critical: "CRITICAL — ACTION NEEDED",
@@ -77,10 +78,25 @@ interface DashboardProps {
 export function Dashboard({ liveData }: DashboardProps) {
   const [visitingAgentId, setVisitingAgentId] = useState<string | null>(null);
   const [factIndex] = useState(() => Math.floor(Math.random() * 10));
+  const simActivity = useActivitySim();
 
   const handleVisitingAgentChange = useCallback((agentId: string | null) => {
     setVisitingAgentId(agentId);
   }, []);
+
+  // Merged task counts: take the higher of live data and simulated activity.
+  // Simulated activity keeps rooms visually busy even with zero real tasks.
+  const agentTasks = useMemo(() => {
+    const result: Record<string, number> = {};
+    CREW.forEach(member => {
+      const live = liveData.agents.find(a => a.id === member.id);
+      const sim  = simActivity.tasks[member.id as SimAgentId] ?? 0;
+      result[member.id] = Math.max(live?.tasksActive ?? 0, sim);
+    });
+    return result;
+  }, [liveData.agents, simActivity.tasks]);
+
+  const hasP1 = liveData.criticalIncidents > 0;
 
   const packets = liveData.agents
     .filter(a => a.status === "working" || a.status === "collaborating")
@@ -111,16 +127,26 @@ export function Dashboard({ liveData }: DashboardProps) {
 
       {/* Station floorplan */}
       <AmbientStation mood={liveData.stationMood}>
-        <StationFloorplan enableVisits onVisitingAgentChange={handleVisitingAgentChange}>
+        <StationFloorplan
+          enableVisits
+          onVisitingAgentChange={handleVisitingAgentChange}
+          criticalIncidents={liveData.criticalIncidents}
+          agentTasks={agentTasks}
+        >
           {CREW.map(member => {
             const liveStatus = liveData.agents.find(a => a.id === member.id);
             const isAway = visitingAgentId === member.id;
+            const wl = tasksToLevel(
+              agentTasks[member.id] ?? 0,
+              hasP1 && member.id === "monkey",
+            );
             return (
               <AgentOffice
                 key={member.id}
                 crew={member}
                 liveStatus={liveStatus}
                 isAway={isAway}
+                workloadLevel={wl}
               />
             );
           })}

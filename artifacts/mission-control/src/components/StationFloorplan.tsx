@@ -1,10 +1,11 @@
 // StationFloorplan — continuous 2×2 floorplan with hallway overlay.
-// Bug fix: CrewVisits reports the visiting agentId so home rooms can hide their sprite.
+// Enhancement sprint: route highlight, incident overlay, task packets.
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { motion } from "framer-motion";
 import { CREW } from "@/lib/crew";
 import { CrewSprite } from "./CrewSprite";
+import { TaskPacketLayer } from "./TaskPacket";
 
 type RoomId = "command" | "security" | "workshop" | "archive";
 
@@ -16,32 +17,25 @@ const ROOM_CENTERS: Record<RoomId, { x: number; y: number }> = {
 };
 
 const AGENT_HOME: Record<string, RoomId> = {
-  monkey: "command",
-  lifesupport: "security",
-  engineer: "workshop",
-  archivist: "archive",
+  monkey: "command", lifesupport: "security", engineer: "workshop", archivist: "archive",
+};
+
+const AGENT_ACCENT: Record<string, string> = {
+  monkey: "#60b8ff", lifesupport: "#ff4090", engineer: "#30e8e0", archivist: "#ffb820",
 };
 
 const ROOM_KEYS: RoomId[] = ["command", "security", "workshop", "archive"];
 const HUB = { x: 50, y: 50 };
 
 interface VisitorState {
-  id: string;
-  agentId: string;
-  from: RoomId;
-  to: RoomId;
+  id: string; agentId: string; from: RoomId; to: RoomId;
   phase: "outbound" | "stay" | "return";
 }
 
-// ── Bug 2 fix: hub centre dot is now a subtle violet, NOT bright cyan ─────
+// ── Hallway overlay ──────────────────────────────────────────────────────────
 function HallwayOverlay() {
   return (
-    <svg
-      className="pointer-events-none absolute inset-0 z-[15] h-full w-full"
-      viewBox="0 0 100 100"
-      preserveAspectRatio="none"
-      aria-hidden
-    >
+    <svg className="pointer-events-none absolute inset-0 z-[15] h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden>
       <defs>
         <linearGradient id="floor-h" x1="0%" y1="0%" x2="100%" y2="0%">
           <stop offset="0%"   stopColor="oklch(0.30 0.10 295 / 0)" />
@@ -59,118 +53,98 @@ function HallwayOverlay() {
           <stop offset="100%" stopColor="oklch(0.62 0.22 295 / 0)" />
         </radialGradient>
       </defs>
-
-      {/* Divider slabs */}
       <rect x="48.6" y="0" width="2.8" height="100" fill="oklch(0.10 0.03 265 / 0.55)" />
       <rect x="0" y="48.6" width="100" height="2.8" fill="oklch(0.10 0.03 265 / 0.55)" />
-
-      {/* Lit corridor strips */}
       <rect x="0"    y="49.3" width="100" height="1.4" fill="url(#floor-h)" />
       <rect x="49.3" y="0"    width="1.4" height="100" fill="url(#floor-v)" />
-
-      {/* Hub glow — violet only, no bright cyan orb */}
       <circle cx="50" cy="50" r="6" fill="url(#hub-glow)" />
-      {/* BUG FIX: was bright cyan fill="oklch(0.78 0.14 200 / 0.85)" — now a very subtle violet dot */}
       <circle cx="50" cy="50" r="1.5" fill="oklch(0.62 0.22 295 / 0.40)" className="station-hub-pulse" />
-
-      {/* Doorway markers */}
-      {[
-        { x: 50, y: 28 },
-        { x: 50, y: 78 },
-        { x: 25, y: 50 },
-        { x: 75, y: 50 },
-      ].map(d => (
+      {[{x:50,y:28},{x:50,y:78},{x:25,y:50},{x:75,y:50}].map(d => (
         <g key={`${d.x}-${d.y}`}>
-          <rect x={d.x - 3} y={d.y - 0.4} width="6" height="0.8"
-            fill="oklch(0.62 0.22 295 / 0.45)" className="station-doorway" />
+          <rect x={d.x-3} y={d.y-0.4} width="6" height="0.8" fill="oklch(0.62 0.22 295 / 0.45)" className="station-doorway" />
         </g>
       ))}
     </svg>
   );
 }
 
-// ── Drone couriers ──────────────────────────────────────────────────────────
-interface Drone {
-  id: number; axis: "h" | "v"; offset: number; duration: number;
-  delay: number; reverse: boolean; color: string; size: number;
+// ── Route highlight — glowing dashed path shown while agent is travelling ───
+function RouteHighlight({ visitor }: { visitor: VisitorState }) {
+  if (visitor.phase === "stay") return null;
+  const from = ROOM_CENTERS[visitor.from];
+  const to   = ROOM_CENTERS[visitor.to];
+  const color = AGENT_ACCENT[visitor.agentId] ?? "#60b8ff";
+
+  const pts = visitor.phase === "outbound"
+    ? [from, { x: from.x, y: 50 }, HUB, { x: to.x, y: 50 }, to]
+    : [to,   { x: to.x,   y: 50 }, HUB, { x: from.x, y: 50 }, from];
+
+  const d = pts.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
+
+  return (
+    <svg className="pointer-events-none absolute inset-0 z-[14] h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden>
+      <defs>
+        <filter id={`route-glow-${visitor.agentId}`}>
+          <feGaussianBlur stdDeviation="0.5" result="blur" />
+          <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+        </filter>
+      </defs>
+      <path d={d} fill="none" stroke={color} strokeWidth="0.6"
+        strokeDasharray="2.5 1.8" strokeLinecap="round"
+        opacity="0.65" filter={`url(#route-glow-${visitor.agentId})`} />
+    </svg>
+  );
 }
 
+// ── Drone couriers ───────────────────────────────────────────────────────────
+interface Drone { id: number; axis: "h"|"v"; offset: number; duration: number; delay: number; reverse: boolean; color: string; size: number; }
+
 function generateDrones(): Drone[] {
-  const colors = [
-    "oklch(0.78 0.14 200 / 0.9)",
-    "oklch(0.62 0.22 295 / 0.9)",
-    "oklch(0.85 0.18 90 / 0.8)",
-    "oklch(0.78 0.18 350 / 0.85)",
-  ];
-  const drones: Drone[] = [];
+  const colors = ["oklch(0.78 0.14 200 / 0.9)", "oklch(0.62 0.22 295 / 0.9)", "oklch(0.85 0.18 90 / 0.8)", "oklch(0.78 0.18 350 / 0.85)"];
   let id = 0;
-  for (let i = 0; i < 6; i++) {
-    drones.push({
-      id: id++, axis: i % 2 === 0 ? "h" : "v",
-      offset: (Math.random() - 0.5) * 1.6,
-      duration: 7 + Math.random() * 6, delay: Math.random() * 8,
-      reverse: Math.random() > 0.5, color: colors[id % colors.length],
-      size: 3 + Math.floor(Math.random() * 2),
-    });
-  }
-  return drones;
+  return Array.from({ length: 6 }, (_, i) => ({
+    id: id++, axis: i % 2 === 0 ? "h" : "v" as "h"|"v",
+    offset: (Math.random() - 0.5) * 1.6, duration: 7 + Math.random() * 6, delay: Math.random() * 8,
+    reverse: Math.random() > 0.5, color: colors[id % colors.length], size: 3 + Math.floor(Math.random() * 2),
+  }));
 }
 
 function DroneLayer() {
   const [drones, setDrones] = useState<Drone[]>([]);
   const gen = useRef(false);
-  useEffect(() => {
-    if (gen.current) return;
-    gen.current = true;
-    setDrones(generateDrones());
-  }, []);
+  useEffect(() => { if (gen.current) return; gen.current = true; setDrones(generateDrones()); }, []);
 
   return (
     <div className="pointer-events-none absolute inset-0 z-[16] overflow-hidden">
       {drones.map(d => {
         const isH = d.axis === "h";
-        const start = d.reverse ? "110%" : "-10%";
-        const end   = d.reverse ? "-10%" : "110%";
+        const start = d.reverse ? "110%" : "-10%", end = d.reverse ? "-10%" : "110%";
         return (
           <motion.div key={d.id} className="absolute rounded-full"
-            style={{
-              width: d.size, height: d.size,
-              backgroundColor: d.color, boxShadow: `0 0 6px ${d.color}`,
-              [isH ? "top" : "left"]: `calc(50% + ${d.offset}px)`,
-              [isH ? "left" : "top"]: start,
-            }}
+            style={{ width: d.size, height: d.size, backgroundColor: d.color, boxShadow: `0 0 6px ${d.color}`, [isH ? "top" : "left"]: `calc(50% + ${d.offset}px)`, [isH ? "left" : "top"]: start }}
             animate={{ [isH ? "left" : "top"]: [start, end] }}
-            transition={{ duration: d.duration, delay: d.delay, repeat: Infinity, repeatDelay: 2 + Math.random() * 4, ease: "linear" }}
-          />
+            transition={{ duration: d.duration, delay: d.delay, repeat: Infinity, repeatDelay: 2 + Math.random() * 4, ease: "linear" }} />
         );
       })}
     </div>
   );
 }
 
-// ── L-shaped path ───────────────────────────────────────────────────────────
+// ── L-shaped path ─────────────────────────────────────────────────────────────
 function pathPoints(from: RoomId, to: RoomId): Array<{ x: number; y: number }> {
-  const a = ROOM_CENTERS[from];
-  const b = ROOM_CENTERS[to];
+  const a = ROOM_CENTERS[from], b = ROOM_CENTERS[to];
   return [a, { x: a.x, y: 50 }, HUB, { x: b.x, y: 50 }, b];
 }
 
-// ── Crew visit orchestrator ─────────────────────────────────────────────────
-// Bug 1 fix: reports visiting agentId up via onVisitorChange so the home room
-// can suppress its static in-room sprite while the agent is shown walking/staying here.
-interface CrewVisitsProps {
-  active: boolean;
-  onVisitorChange: (agentId: string | null) => void;
-}
+// ── Crew visit orchestrator ──────────────────────────────────────────────────
+interface CrewVisitsProps { active: boolean; onVisitorChange: (agentId: string | null) => void; onVisitorStateChange?: (v: VisitorState | null) => void; }
 
-function CrewVisits({ active, onVisitorChange }: CrewVisitsProps) {
+function CrewVisits({ active, onVisitorChange, onVisitorStateChange }: CrewVisitsProps) {
   const [visitor, setVisitor] = useState<VisitorState | null>(null);
-
-  // Stable ref so the effect never re-runs just because the callback identity changed.
-  // Re-running the effect would trigger the cleanup which calls onVisitorChange(null),
-  // immediately resetting isAway=false and creating a duplicate sprite.
   const cbRef = useRef(onVisitorChange);
+  const vsCbRef = useRef(onVisitorStateChange);
   useEffect(() => { cbRef.current = onVisitorChange; });
+  useEffect(() => { vsCbRef.current = onVisitorStateChange; });
 
   useEffect(() => {
     if (!active) return;
@@ -185,21 +159,14 @@ function CrewVisits({ active, onVisitorChange }: CrewVisitsProps) {
         const others = ROOM_KEYS.filter(r => r !== from);
         const to = others[Math.floor(Math.random() * others.length)];
         const id = `${agentId}-${Date.now()}`;
+        const v: VisitorState = { id, agentId, from, to, phase: "outbound" };
+        setVisitor(v); cbRef.current(agentId); vsCbRef.current?.(v);
 
-        setVisitor({ id, agentId, from, to, phase: "outbound" });
-        cbRef.current(agentId); // hide home-room sprite for entire visit duration
-
-        // outbound (2.4s walk) → stay (3.5s) → return (2.4s walk) → cleanup
-        setTimeout(() => {
-          if (!cancelled) setVisitor(v => v?.id === id ? { ...v, phase: "stay" } : v);
-        }, 2400);
-        setTimeout(() => {
-          if (!cancelled) setVisitor(v => v?.id === id ? { ...v, phase: "return" } : v);
-        }, 2400 + 3500);
+        setTimeout(() => { if (!cancelled) { const stayed = { ...v, phase: "stay" as const }; setVisitor(stayed); vsCbRef.current?.(stayed); } }, 2400);
+        setTimeout(() => { if (!cancelled) { const ret = { ...v, phase: "return" as const }; setVisitor(ret); vsCbRef.current?.(ret); } }, 2400 + 3500);
         setTimeout(() => {
           if (cancelled) return;
-          setVisitor(v => v?.id === id ? null : v);
-          cbRef.current(null); // restore home-room sprite only after walk-back completes
+          setVisitor(null); cbRef.current(null); vsCbRef.current?.(null);
           scheduleNext(12000 + Math.random() * 12000);
         }, 2400 + 3500 + 2400 + 200);
       }, delay);
@@ -207,25 +174,15 @@ function CrewVisits({ active, onVisitorChange }: CrewVisitsProps) {
     };
 
     const initial = scheduleNext(4000 + Math.random() * 4000);
-    const onVis = () => {
-      if (document.hidden) {
-        cancelled = true;
-        setVisitor(null);
-        cbRef.current(null);
-      }
-    };
+    const onVis = () => { if (document.hidden) { cancelled = true; setVisitor(null); cbRef.current(null); vsCbRef.current?.(null); } };
     document.addEventListener("visibilitychange", onVis);
 
     return () => {
       cancelled = true;
       clearTimeout(initial);
-      // Note: do NOT call cbRef.current(null) here — cleanup fires whenever
-      // the parent re-renders (changing callback identity), which would reset
-      // isAway prematurely. Instead, the visit completion timeout is the sole
-      // owner of the isAway=false transition.
       document.removeEventListener("visibilitychange", onVis);
     };
-  }, [active]); // ← only re-run when visits are toggled on/off, never on callback change
+  }, [active]);
 
   if (!visitor) return null;
 
@@ -236,10 +193,8 @@ function CrewVisits({ active, onVisitorChange }: CrewVisitsProps) {
 
   if (dest) {
     return (
-      <motion.div key={`${visitor.id}-stay`}
-        className="pointer-events-none absolute z-[18]"
-        initial={false}
-        style={{ left: `${dest.x}%`, top: `${dest.y}%`, x: "-50%", y: "-50%" }}>
+      <motion.div key={`${visitor.id}-stay`} className="pointer-events-none absolute z-[18]"
+        initial={false} style={{ left: `${dest.x}%`, top: `${dest.y}%`, x: "-50%", y: "-50%" }}>
         <div className="agent-idle">
           <CrewSprite agentId={visitor.agentId} pose="idle" displayWidth={96} displayHeight={72} />
         </div>
@@ -249,8 +204,7 @@ function CrewVisits({ active, onVisitorChange }: CrewVisitsProps) {
   }
 
   return (
-    <motion.div key={`${visitor.id}-${visitor.phase}`}
-      className="pointer-events-none absolute z-[18]"
+    <motion.div key={`${visitor.id}-${visitor.phase}`} className="pointer-events-none absolute z-[18]"
       style={{ left: `${path[0].x}%`, top: `${path[0].y}%`, x: "-50%", y: "-50%" }}
       animate={{ left: path.map(p => `${p.x}%`), top: path.map(p => `${p.y}%`) }}
       transition={{ duration: 2.4, ease: "easeInOut", times: [0, 0.25, 0.5, 0.75, 1] }}>
@@ -262,30 +216,60 @@ function CrewVisits({ active, onVisitorChange }: CrewVisitsProps) {
   );
 }
 
-// ── StationFloorplan wrapper ────────────────────────────────────────────────
+// ── StationFloorplan ─────────────────────────────────────────────────────────
 export function StationFloorplan({
-  children,
-  enableVisits = true,
-  onVisitingAgentChange,
+  children, enableVisits = true, onVisitingAgentChange,
+  criticalIncidents = 0, agentTasks = {},
 }: {
   children: ReactNode;
   enableVisits?: boolean;
   onVisitingAgentChange?: (agentId: string | null) => void;
+  criticalIncidents?: number;
+  agentTasks?: Record<string, number>;
 }) {
-  // useCallback keeps identity stable so CrewVisits' cbRef sync is a no-op re-render,
-  // and never accidentally re-triggers the visits effect.
+  const [visitor, setVisitor] = useState<VisitorState | null>(null);
+
   const handleVisitorChange = useCallback((agentId: string | null) => {
     onVisitingAgentChange?.(agentId);
   }, [onVisitingAgentChange]);
+
+  const handleVisitorStateChange = useCallback((v: VisitorState | null) => {
+    setVisitor(v);
+  }, []);
 
   return (
     <div className="relative">
       <div className="relative grid grid-cols-2 gap-[2px] rounded-lg overflow-hidden bg-[oklch(0.10_0.03_265)]">
         {children}
       </div>
+
       <HallwayOverlay />
       <DroneLayer />
-      <CrewVisits active={enableVisits} onVisitorChange={handleVisitorChange} />
+
+      {/* Task packets — fly from hub to room when task count increases */}
+      <div className="pointer-events-none absolute inset-0 z-[22] overflow-hidden">
+        <TaskPacketLayer agentTasks={agentTasks} />
+      </div>
+
+      {/* Route highlight — glowing dashed path when agent is walking */}
+      {visitor && visitor.phase !== "stay" && <RouteHighlight visitor={visitor} />}
+
+      <CrewVisits
+        active={enableVisits}
+        onVisitorChange={handleVisitorChange}
+        onVisitorStateChange={handleVisitorStateChange}
+      />
+
+      {/* Incident response overlay — pulsing red border when P1 incident is active */}
+      {criticalIncidents > 0 && (
+        <div className="pointer-events-none absolute inset-0 z-[13] rounded-lg overflow-hidden" style={{
+          border: "2px solid rgba(255,60,40,0.55)",
+          boxShadow: "inset 0 0 40px rgba(255,60,40,0.08), 0 0 12px rgba(255,60,40,0.20)",
+          animation: "pulse-fast 0.9s ease-in-out infinite",
+        }}>
+          <div className="absolute top-1 right-2 font-mono text-[7px] text-red-400/80 tracking-wider">⚠ INCIDENT ACTIVE</div>
+        </div>
+      )}
     </div>
   );
 }

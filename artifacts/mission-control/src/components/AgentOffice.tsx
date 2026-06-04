@@ -4,6 +4,7 @@ import { StationRoom } from "./StationRoom";
 import type { CrewMember } from "@/lib/crew";
 import type { LiveAgentStatus } from "@/lib/live-data";
 import type { AgentActivity } from "@/lib/station-state";
+import { type WorkloadLevel } from "@/lib/room-energy";
 
 const ROOM_CONFIGS: Record<string, {
   roomId: string; label: string;
@@ -69,9 +70,10 @@ interface AgentOfficeProps {
   liveStatus?: LiveAgentStatus;
   isAway?: boolean;
   celebratingTaskId?: string | null;
+  workloadLevel?: WorkloadLevel;
 }
 
-export function AgentOffice({ crew, liveStatus, isAway, celebratingTaskId }: AgentOfficeProps) {
+export function AgentOffice({ crew, liveStatus, isAway, celebratingTaskId, workloadLevel }: AgentOfficeProps) {
   const config = ROOM_CONFIGS[crew.id];
   if (!config) return null;
 
@@ -96,6 +98,7 @@ export function AgentOffice({ crew, liveStatus, isAway, celebratingTaskId }: Age
       useCanvas
       currentTaskName={taskName}
       isAway={isAway}
+      workloadLevel={workloadLevel}
     />
   );
 }

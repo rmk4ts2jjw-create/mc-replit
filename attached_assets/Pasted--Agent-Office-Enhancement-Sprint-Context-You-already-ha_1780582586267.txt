@@ -1,0 +1,379 @@
+# Agent Office Enhancement Sprint
+
+## Context
+
+You already have the latest Agent Office build.
+
+Do not redesign it.
+
+Do not replace the current floorplan.
+
+Do not rebuild the room system.
+
+Do not create a new dashboard.
+
+The current structure is good.
+
+This sprint is about making the station feel more alive, reactive and operational.
+
+Think of this as moving from a static scene to a living workplace.
+
+---
+
+# Goal
+
+Every visible action should reflect operational reality.
+
+The station should visually react to:
+
+* Task creation
+* Task assignment
+* Task progress
+* Collaboration
+* Incidents
+* System health
+* Agent workload
+* Task completion
+
+A user should be able to understand what is happening without opening a single task card.
+
+---
+
+# Priority 1: Workload Driven Behaviour
+
+Agents currently move and animate.
+
+Take this much further.
+
+Each agent should have workload states.
+
+## Idle
+
+Very little movement.
+
+Examples:
+
+* Looking around room
+* Checking monitor
+* Walking a few pixels
+* Reading report
+
+Room lighting calm.
+
+---
+
+## Light Workload
+
+Small increase in activity.
+
+Examples:
+
+* More screen updates
+* More movement
+* More workstation interaction
+
+---
+
+## Medium Workload
+
+Clearly active.
+
+Examples:
+
+* Frequent workstation interaction
+* Walking around room
+* Equipment animations increase
+
+Room brightness slightly increases.
+
+---
+
+## Heavy Workload
+
+Room should visibly feel busy.
+
+Examples:
+
+* Faster monitor animations
+* Additional room effects
+* More sprite activity
+* Increased movement frequency
+
+Room becomes operationally "hot".
+
+---
+
+## Critical Workload
+
+Room should immediately stand out.
+
+Examples:
+
+* Alert lighting
+* Faster activity
+* Increased visual energy
+* Command indicators
+
+Without reading text the user should know:
+
+"Something important is happening here."
+
+---
+
+# Priority 2: Expanded Sprite System
+
+Current sprite poses are a good start.
+
+Add more.
+
+Examples:
+
+## Space Monkey
+
+* Reviewing mission board
+* Pointing at display
+* Speaking on comms
+* Incident command stance
+* Walking with datapad
+
+## Systems Engineer
+
+* Typing
+* Inspecting monitor
+* Repair animation
+* Terminal interaction
+* Carrying task packet
+
+## Life Support
+
+* Checking reactor
+* Inspecting systems
+* Maintenance animation
+* Infrastructure monitoring
+
+## Archivist
+
+* Reviewing records
+* Scanning data
+* Updating memory
+* Research stance
+
+Goal:
+
+Each agent should appear to have a job.
+
+---
+
+# Priority 3: Task Arrival Animation
+
+When a task is assigned:
+
+Do not silently change status.
+
+Animate it.
+
+Sequence:
+
+1. Task packet appears.
+2. Packet travels through station.
+3. Packet arrives at assigned room.
+4. Agent reacts.
+5. Agent enters working state.
+
+The station should visibly acknowledge new work.
+
+---
+
+# Priority 4: Visible Progress
+
+Tasks should create visible room activity.
+
+Examples:
+
+Small task:
+
+* Minimal reaction
+
+Medium task:
+
+* Noticeable room activity
+
+Large task:
+
+* Room becomes visibly busy
+
+Critical task:
+
+* Station-wide awareness
+
+The room should visually reflect the amount of work underway.
+
+---
+
+# Priority 5: Collaboration Behaviour
+
+Current visiting behaviour works.
+
+Expand it.
+
+When agents collaborate:
+
+* Route is highlighted
+* Travel is visible
+* Arrival feels deliberate
+
+Once together:
+
+* Both agents animate differently
+* Shared work effect appears
+* Collaboration icon appears
+
+Make collaboration obvious.
+
+---
+
+# Priority 6: Operational Storytelling
+
+Every room should tell a story.
+
+Command Room:
+
+* Tactical screens change
+* Incident maps appear
+* Briefing displays activate
+
+Engineering:
+
+* Diagnostics update
+* Schematics animate
+* Code displays scroll
+
+Infrastructure:
+
+* Monitoring systems update
+* Reactor activity changes
+
+Archives:
+
+* Documents update
+* Memory panels change
+
+The environment should reflect current operations.
+
+---
+
+# Priority 7: Incident Response Mode
+
+Current atmosphere effects exist.
+
+Expand them.
+
+When a P1 incident exists:
+
+Space Monkey:
+
+* Immediately becomes active
+* Command posture
+* Incident indicators appear
+
+Other agents:
+
+* Activity increases
+* Collaboration frequency increases
+
+Station:
+
+* Alert state becomes more dramatic
+* Operations visibly intensify
+
+The user should instantly notice:
+
+"The station is handling an incident."
+
+---
+
+# Priority 8: Agent Awareness
+
+Agents should react to nearby events.
+
+Examples:
+
+Task completed:
+
+* Brief celebration animation
+
+Incident created:
+
+* Nearby agents look toward command room
+
+Collaboration request:
+
+* Agent pauses current animation
+* Turns toward route
+
+Assignment received:
+
+* Immediate acknowledgement animation
+
+The station should feel responsive.
+
+---
+
+# Priority 9: Ambient Life
+
+Add subtle background life.
+
+Examples:
+
+* Coffee steam
+* Screen flicker
+* Radar sweeps
+* Indicator lights
+* Data streams
+* Environmental movement
+
+These should never distract.
+
+They should make the station feel occupied.
+
+---
+
+# Priority 10: Room Energy System
+
+Create a hidden room energy value.
+
+This drives:
+
+* Lighting intensity
+* Animation frequency
+* Visual effects
+* Activity indicators
+
+Energy should be derived from:
+
+* Open tasks
+* Active tasks
+* Incident involvement
+* Collaboration activity
+
+The station should naturally become more alive as workload increases.
+
+---
+
+# Success Criteria
+
+Do not add more pages.
+
+Do not redesign layouts.
+
+Do not add new management features.
+
+Focus entirely on:
+
+* More movement
+* More reactions
+* More visual communication
+* More operational atmosphere
+* More believable crew behaviour
+
+The station should feel like a real workplace where work is happening, not a collection of animated sprites.

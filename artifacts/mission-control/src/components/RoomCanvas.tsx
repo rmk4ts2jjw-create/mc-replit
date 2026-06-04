@@ -2,12 +2,14 @@
 // ⚠️ WARNING: Drawing functions are hand-tuned pixel art. Do NOT auto-refactor.
 
 import { useEffect, useRef } from "react";
+import { type WorkloadLevel } from "@/lib/room-energy";
 
 export type RoomType = "command" | "security" | "workshop" | "archive";
 
 interface RoomCanvasProps {
   room: RoomType;
   className?: string;
+  workloadLevel?: WorkloadLevel;
 }
 
 function drawCommandRoom(ctx: CanvasRenderingContext2D, S: number) {
@@ -295,10 +297,12 @@ const ROOM_DRAW: Record<RoomType, (ctx: CanvasRenderingContext2D, S: number) => 
 
 const W = 384, H = 256;
 
-export function RoomCanvas({ room, className }: RoomCanvasProps) {
+export function RoomCanvas({ room, className, workloadLevel = "idle" }: RoomCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const timerRef  = useRef<ReturnType<typeof setInterval> | null>(null);
   const frameRef  = useRef(0);
+  const levelRef  = useRef<WorkloadLevel>(workloadLevel);
+  levelRef.current = workloadLevel;
 
   useEffect(() => {
     const canvas = canvasRef.current; if (!canvas) return;
@@ -309,50 +313,57 @@ export function RoomCanvas({ room, className }: RoomCanvasProps) {
       ctx.clearRect(0, 0, W, H);
       ROOM_DRAW[room](ctx, S);
 
-      // Animated overlays per room
+      // Animated overlays — speed/intensity scale with levelRef.current
+      const t   = frameRef.current;
+      const lvl = levelRef.current;
+      const spd = lvl === "critical" ? 2.5 : lvl === "heavy" ? 1.8 : lvl === "medium" ? 1.3 : 1.0;
+      const e   = lvl === "critical" ? 1.0 : lvl === "heavy" ? 0.75 : lvl === "medium" ? 0.5 : lvl === "light" ? 0.25 : 0;
+
       if (room === "command") {
-        const t = frameRef.current;
-        // Blinking status light on monitor 3
-        if (Math.floor(t / 60) % 2 === 0) {
-          ctx.fillStyle = "#ff4040"; ctx.fillRect(357, 56, 2, 2);
+        const blinkDiv = lvl === "critical" ? 15 : lvl === "heavy" ? 30 : 60;
+        if (Math.floor(t / blinkDiv) % 2 === 0) {
+          ctx.fillStyle = lvl === "critical" ? "#ff6020" : "#ff4040"; ctx.fillRect(357, 56, 2, 2);
         }
-        // Star pulse on holo table
         const tStarPos = [[130,138],[140,142],[152,136],[160,140],[170,144],[178,138],[185,142],[195,136],[200,140],[210,144],[220,138]];
-        const pulse = 0.5 + 0.5 * Math.sin(t * 0.04);
-        ctx.fillStyle = `rgba(192,128,255,${pulse * 0.8})`;
-        tStarPos.forEach(([sx, sy]) => ctx.fillRect(sx, sy, 1, 1));
+        const pulse = 0.5 + 0.5 * Math.sin(t * 0.04 * spd);
+        ctx.fillStyle = `rgba(192,128,255,${pulse * 0.8})`; tStarPos.forEach(([sx,sy]) => ctx.fillRect(sx,sy,1,1));
+        if (e >= 0.5) { const ly = 137 + (Math.floor(t*spd/6) % 13); ctx.fillStyle = `rgba(120,80,255,${0.28+0.14*Math.sin(t*0.09)})`; ctx.fillRect(155,ly,22,2); }
+        if (lvl === "critical") { const a = 0.05+0.04*Math.sin(t*0.12); ctx.fillStyle=`rgba(255,60,40,${a})`; ctx.fillRect(19,100,40,60); ctx.fillRect(325,100,40,60); }
       }
 
       if (room === "security") {
-        // Rotating radar sweep
-        const t = frameRef.current;
-        const angle = (t * 0.06) % (Math.PI * 2);
+        const angle = (t * 0.06 * spd) % (Math.PI * 2);
         ctx.save(); ctx.translate(55, 143);
-        const grad = ctx.createLinearGradient(0, 0, Math.cos(angle)*28, Math.sin(angle)*28);
-        grad.addColorStop(0, "rgba(224,64,160,0.6)"); grad.addColorStop(1, "rgba(224,64,160,0)");
+        const rc = lvl === "critical" ? "rgba(255,60,40,0.65)" : "rgba(224,64,160,0.6)";
+        const grad = ctx.createLinearGradient(0,0,Math.cos(angle)*28,Math.sin(angle)*28);
+        grad.addColorStop(0, rc); grad.addColorStop(1, "rgba(224,64,160,0)");
         ctx.strokeStyle = grad; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(Math.cos(angle)*28, Math.sin(angle)*28); ctx.stroke();
-        ctx.restore();
+        ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(Math.cos(angle)*28,Math.sin(angle)*28); ctx.stroke(); ctx.restore();
+        if (e >= 0.75) { const b=(t*0.025)%(Math.PI*2); ctx.fillStyle=lvl==="critical"?"#ff4040":"#ff80c0"; ctx.fillRect(Math.round(55+Math.cos(b)*20),Math.round(143+Math.sin(b)*20),3,3); }
       }
 
       if (room === "workshop") {
-        const t = frameRef.current;
-        // Welder spark
-        if (Math.floor(t / 25) % 7 === 0) {
-          ctx.fillStyle = "#ffffff"; ctx.fillRect(256, 119, 2, 2);
-          ctx.fillStyle = "#ffff80"; ctx.fillRect(255, 118, 1, 1); ctx.fillRect(258, 117, 1, 1);
+        const sd = lvl === "critical" ? 8 : lvl === "heavy" ? 14 : lvl === "medium" ? 20 : 28;
+        if (Math.floor(t/sd) % 7 === 0) {
+          ctx.fillStyle="#ffffff"; ctx.fillRect(256,119,2,2); ctx.fillStyle="#ffff80"; ctx.fillRect(255,118,1,1); ctx.fillRect(258,117,1,1);
+          if (lvl==="critical") { ctx.fillStyle="#ff8800"; ctx.fillRect(254,117,1,1); ctx.fillRect(259,118,1,1); }
         }
-        // 3D printer head sweep
-        const headX = 343 + Math.round(28 * Math.abs(Math.sin(t * 0.02)));
-        ctx.fillStyle = "#40d0e0"; ctx.fillRect(headX, 120, 2, 8);
+        const hx = 343 + Math.round(28*Math.abs(Math.sin(t*0.02*spd)));
+        ctx.fillStyle = lvl==="critical" ? "#ff8830" : lvl==="heavy" ? "#80ffff" : "#40d0e0"; ctx.fillRect(hx,120,2,8);
+        if (e >= 0.5) { const row=Math.floor(t*spd/8)%4; ctx.fillStyle=`rgba(0,200,220,${0.32+0.14*Math.sin(t*0.06)})`; ctx.fillRect(150+row*12,128,10,2); }
       }
 
       if (room === "archive") {
-        const t = frameRef.current;
-        // Lantern flicker
-        const flicker = 0.5 + 0.5 * Math.sin(t * 0.07 + 1);
-        ctx.fillStyle = `rgba(255,240,160,${flicker * 0.6})`;
-        ctx.fillRect(70, 107, 10, 14); ctx.fillRect(304, 110, 10, 14);
+        const flickerSpd = lvl === "critical" ? 0.18 : lvl === "heavy" ? 0.12 : 0.07;
+        const flicker = 0.5 + 0.5 * Math.sin(t * flickerSpd + 1);
+        ctx.fillStyle = `rgba(255,240,160,${flicker*(0.45+0.3*e)})`; ctx.fillRect(70,107,10,14); ctx.fillRect(304,110,10,14);
+        if (e > 0) { const cp=0.18+0.18*Math.sin(t*0.06*spd); ctx.fillStyle=`rgba(224,160,32,${cp})`; ctx.fillRect(149,146,2,2); ctx.fillRect(168,150,2,2); ctx.fillRect(189,146,2,2); }
+      }
+
+      // Room-wide energy tint at heavy/critical
+      if (e >= 0.75) {
+        const oa = (e-0.5)*0.1 + 0.02*Math.sin(t*0.08);
+        ctx.fillStyle = lvl==="critical" ? `rgba(255,50,30,${oa})` : `rgba(255,120,0,${oa})`; ctx.fillRect(0,0,W,H);
       }
     };
 
