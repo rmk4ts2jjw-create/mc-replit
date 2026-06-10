@@ -2,6 +2,7 @@ import { useLocation, Link } from "wouter";
 import { CREW } from "@/lib/crew";
 import { getBuildLabel } from "@/lib/build-info";
 import { cn } from "@/lib/utils";
+import { useActivitySim, tasksToLevel, type SimAgentId } from "@/lib/room-energy";
 
 interface NavItem {
   href: string;
@@ -43,8 +44,17 @@ const ACCENT_CLASSES: Record<string, string> = {
   archivist:   "border-l-2 border-yellow-400/60",
 };
 
+const WL_DOT: Record<string, string> = {
+  idle:     "bg-muted-foreground/25",
+  light:    "bg-[oklch(0.85_0.23_155)]",
+  medium:   "bg-[oklch(0.82_0.17_80)]",
+  heavy:    "bg-orange-400 animate-pulse",
+  critical: "bg-red-400 animate-pulse",
+};
+
 export function AppSidebar() {
   const [path] = useLocation();
+  const simActivity = useActivitySim();
 
   const isActive = (href: string) =>
     href === "/" ? path === "/" : path.startsWith(href);
@@ -136,20 +146,24 @@ export function AppSidebar() {
       <div className="border-t border-sidebar-border/60 px-3 py-3">
         <div className="font-mono text-[8px] tracking-[0.22em] text-sidebar-foreground/30 mb-2 px-0.5">CREW</div>
         <div className="space-y-0.5">
-          {CREW.map(member => (
-            <div key={member.id}
-              className={cn(
-                "flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors cursor-default",
-                ACCENT_CLASSES[member.id]
-              )}>
-              <span className="shrink-0 text-base leading-none">{member.emoji}</span>
-              <div className="min-w-0">
-                <div className="font-medium text-[10px] text-sidebar-foreground/80 leading-tight truncate">{member.name}</div>
-                <div className="font-mono text-[8px] text-sidebar-foreground/35 leading-tight truncate">{member.shortRole}</div>
+          {CREW.map(member => {
+            const wl = tasksToLevel(simActivity.tasks[member.id as SimAgentId] ?? 0);
+            const dotCls = WL_DOT[wl] ?? WL_DOT.idle;
+            return (
+              <div key={member.id}
+                className={cn(
+                  "flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors cursor-default",
+                  ACCENT_CLASSES[member.id]
+                )}>
+                <span className="shrink-0 text-base leading-none">{member.emoji}</span>
+                <div className="min-w-0">
+                  <div className="font-medium text-[10px] text-sidebar-foreground/80 leading-tight truncate">{member.name}</div>
+                  <div className="font-mono text-[8px] text-sidebar-foreground/35 leading-tight truncate">{member.shortRole}</div>
+                </div>
+                <div className={cn("ml-auto shrink-0 w-1.5 h-1.5 rounded-full", dotCls)} />
               </div>
-              <div className="ml-auto shrink-0 w-1.5 h-1.5 rounded-full bg-[oklch(0.85_0.23_155)] opacity-75" />
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </aside>

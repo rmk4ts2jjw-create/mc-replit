@@ -190,11 +190,14 @@ export function StationRoom({
           <img src={bgImage} alt={label} className="w-full h-auto" style={{ imageRendering: "pixelated" }} />
         )}
 
-        {/* Room label + workload indicator */}
-        <div className="absolute top-1 left-1 flex items-center gap-1">
-          <span className="font-mono text-[7px] tracking-[0.15em] text-muted-foreground/50 bg-background/40 px-1.5 py-0.5">{label}</span>
+        {/* Room label chip + workload indicator */}
+        <div className="absolute top-1.5 left-1.5 flex items-center gap-1.5">
+          <span
+            className="font-mono text-[7px] tracking-[0.16em] text-muted-foreground/70 px-1.5 py-0.5 rounded"
+            style={{ background: "rgba(0,0,0,0.50)", backdropFilter: "blur(6px)", border: "1px solid rgba(255,255,255,0.07)" }}
+          >{label}</span>
           {showDot && (
-            <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: dotColor, boxShadow: `0 0 4px ${dotColor}` }} />
+            <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: dotColor, boxShadow: `0 0 5px ${dotColor}` }} />
           )}
         </div>
 
@@ -216,12 +219,24 @@ export function StationRoom({
         ))}
 
         {bubbleText && (
-          <div className="absolute z-20 pointer-events-none bubble-visible" style={{
+          <div className="absolute z-20 pointer-events-none" style={{
             left: `${displayPos.xPct}%`, top: `${displayPos.yPct - 18}%`, transform: "translate(-50%, -50%)",
           }}>
-            <div className={`bg-[#1a1a2e]/95 backdrop-blur-sm border ${stateConfig.bubbleClass} rounded-lg px-2 py-1 font-mono text-[7px] whitespace-nowrap shadow-lg`} style={{ color: accent }}>
+            <div
+              className="relative font-mono text-[7px] whitespace-nowrap px-2 py-1 rounded-lg"
+              style={{
+                background: "rgba(8,8,16,0.88)",
+                backdropFilter: "blur(10px)",
+                border: "1px solid rgba(255,255,255,0.09)",
+                boxShadow: "0 4px 14px rgba(0,0,0,0.55)",
+                color: accent,
+              }}
+            >
               {bubbleText}
-              <div className="absolute left-1/2 -translate-x-1/2 -bottom-1 w-2 h-2 rotate-45 bg-[#1a1a2e]/95 border-r border-b" style={{ borderColor: "inherit" }} />
+              <div
+                className="absolute left-1/2 -translate-x-1/2 -bottom-[4px] w-2 h-2 rotate-45"
+                style={{ background: "rgba(8,8,16,0.88)", borderRight: "1px solid rgba(255,255,255,0.09)", borderBottom: "1px solid rgba(255,255,255,0.09)" }}
+              />
             </div>
           </div>
         )}

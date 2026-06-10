@@ -17,6 +17,9 @@ const MOOD_LABEL: Record<string, string> = {
 const MOOD_CLASS: Record<string, string> = {
   calm: "text-[oklch(0.88_0.18_145)]", busy: "text-yellow-400", alert: "text-orange-400", critical: "text-red-400 animate-pulse",
 };
+const MOOD_ACCENT: Record<string, string> = {
+  calm: "oklch(0.85 0.23 155)", busy: "oklch(0.82 0.17 80)", alert: "rgb(251 146 60)", critical: "rgb(248 113 113)",
+};
 
 function MoodBanner({ mood, alertLevel, activeCrons, totalCrons, uptime }: {
   mood: LiveStationData["stationMood"];
@@ -24,33 +27,42 @@ function MoodBanner({ mood, alertLevel, activeCrons, totalCrons, uptime }: {
   activeCrons: number; totalCrons: number; uptime: string;
 }) {
   return (
-    <div className="flex items-center justify-between rounded-lg border border-border/60 bg-card/50 px-4 py-2.5 mb-4">
-      <div className="flex items-center gap-2">
-        <div className={`text-[10px] font-mono tracking-[0.2em] ${MOOD_CLASS[mood]}`}>{MOOD_LABEL[mood]}</div>
+    <div
+      className="glass-card flex items-center justify-between px-4 py-3 mb-4"
+      style={{ borderLeft: `3px solid color-mix(in oklab, ${MOOD_ACCENT[mood]}, transparent 30%)` }}
+    >
+      <div className="flex items-center gap-3">
+        <div className={`font-mono text-[10px] tracking-[0.22em] font-semibold ${MOOD_CLASS[mood]}`}>{MOOD_LABEL[mood]}</div>
         {alertLevel !== "none" && (
-          <span className={`font-mono text-[9px] rounded-full px-2 py-0.5 ${
-            alertLevel === "critical" ? "bg-red-400/20 text-red-400" :
-            alertLevel === "warning"  ? "bg-orange-400/20 text-orange-400" :
-                                        "bg-blue-400/20 text-blue-400"
+          <span className={`font-mono text-[9px] rounded-full px-2 py-0.5 border ${
+            alertLevel === "critical" ? "bg-red-400/15 text-red-400 border-red-400/30" :
+            alertLevel === "warning"  ? "bg-orange-400/15 text-orange-400 border-orange-400/30" :
+                                        "bg-blue-400/15 text-blue-400 border-blue-400/30"
           }`}>{alertLevel.toUpperCase()}</span>
         )}
       </div>
-      <div className="flex items-center gap-4 text-[9px] font-mono text-muted-foreground">
-        <span>CRONS {activeCrons}/{totalCrons}</span>
-        <span>UP {uptime}</span>
+      <div className="flex items-center gap-5">
+        <div className="flex items-center gap-1.5">
+          <span className="font-mono text-[9px] text-muted-foreground/45 tracking-wider">CRONS</span>
+          <span className="font-mono text-[10px] text-foreground/80 tabular-nums">{activeCrons}/{totalCrons}</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="font-mono text-[9px] text-muted-foreground/45 tracking-wider">UP</span>
+          <span className="font-mono text-[10px] text-foreground/80">{uptime}</span>
+        </div>
       </div>
     </div>
   );
 }
 
-function StatCard({ label, value, sub, trend, accent }: {
+function StatCard({ label, value, sub, accent }: {
   label: string; value: string | number; sub?: string; trend?: "up" | "down" | "neutral"; accent?: string;
 }) {
   return (
-    <div className="rounded-xl border border-border/80 bg-card/60 px-4 py-3 flex flex-col gap-1">
-      <div className="font-mono text-[8px] tracking-[0.15em] text-muted-foreground">{label}</div>
-      <div className={`text-2xl font-bold tracking-tight ${accent || "text-foreground"}`}>{value}</div>
-      {sub && <div className="text-[9px] text-muted-foreground">{sub}</div>}
+    <div className="glass-card px-4 py-4 flex flex-col gap-1.5">
+      <div className="label-tracked">{label}</div>
+      <div className={`text-2xl font-bold tracking-tight metric ${accent || "text-foreground"}`}>{value}</div>
+      {sub && <div className="text-[9px] text-muted-foreground/70">{sub}</div>}
     </div>
   );
 }
@@ -62,11 +74,11 @@ function IncidentPanel({ count, critical }: { count: number; critical: number })
     );
   }
   return (
-    <div className={`rounded-xl border px-4 py-3 ${critical > 0 ? "border-red-400/40 bg-red-400/5" : "border-orange-400/40 bg-orange-400/5"}`}>
-      <div className="font-mono text-[8px] tracking-[0.15em] text-muted-foreground mb-1">OPEN INCIDENTS</div>
-      <div className="text-2xl font-bold text-red-400">{count}</div>
-      {critical > 0 && <div className="text-[9px] text-red-400/70">{critical} CRITICAL</div>}
-      <Link href="/incidents"><div className="mt-2 font-mono text-[9px] text-muted-foreground/60 hover:text-muted-foreground cursor-pointer underline-offset-2 hover:underline">View incidents →</div></Link>
+    <div className="glass-card px-4 py-4" style={{ borderLeft: `3px solid ${critical > 0 ? "rgba(248,113,113,0.7)" : "rgba(251,146,60,0.6)"}` }}>
+      <div className="label-tracked mb-1.5">OPEN INCIDENTS</div>
+      <div className="text-2xl font-bold metric text-red-400">{count}</div>
+      {critical > 0 && <div className="text-[9px] text-red-400/70 mt-0.5">{critical} CRITICAL</div>}
+      <Link href="/incidents"><div className="mt-3 font-mono text-[9px] text-muted-foreground/50 hover:text-muted-foreground cursor-pointer underline-offset-2 hover:underline transition-colors">View incidents →</div></Link>
     </div>
   );
 }
@@ -166,33 +178,35 @@ export function Dashboard({ liveData }: DashboardProps) {
       </div>
 
       {/* Space fact */}
-      <div className="rounded-xl border border-border/60 bg-card/30 px-4 py-3">
-        <div className="font-mono text-[8px] tracking-[0.15em] text-muted-foreground mb-1">STATION INTEL</div>
-        <div className="text-[11px] text-foreground/70 italic">{getRotationFact(factIndex)}</div>
+      <div className="glass-card px-4 py-3">
+        <div className="label-tracked mb-1.5">STATION INTEL</div>
+        <div className="text-[11px] text-foreground/65 italic leading-relaxed">{getRotationFact(factIndex)}</div>
       </div>
 
       {/* Agent status table */}
-      <div className="rounded-xl border border-border/80 bg-card/40 overflow-hidden">
-        <div className="px-4 py-2 border-b border-border/50 font-mono text-[9px] tracking-[0.15em] text-muted-foreground">CREW STATUS</div>
-        <div className="divide-y divide-border/40">
+      <div className="glass-card overflow-hidden">
+        <div className="px-4 py-2.5 border-b border-border/40 label-tracked">CREW STATUS</div>
+        <div className="divide-y divide-border/30">
           {CREW.map(member => {
             const live = liveData.agents.find(a => a.id === member.id);
             const status = live?.status || "idle";
             const action = live?.currentAction;
-            const statusColor = status === "working" || status === "collaborating"
-              ? "text-[oklch(0.88_0.18_145)]"
-              : status === "away" ? "text-muted-foreground/40" : "text-muted-foreground/60";
+            const isActive = status === "working" || status === "collaborating";
+            const dotColor = isActive ? "#40d080" : status === "away" ? "#555" : "#444";
+            const statusLabel = status === "working" ? "ON DUTY" : status === "collaborating" ? "COLLAB" : status === "away" ? "AWAY" : "IDLE";
+            const statusColor = isActive ? "text-[oklch(0.88_0.18_145)]" : status === "away" ? "text-muted-foreground/35" : "text-muted-foreground/50";
             return (
-              <div key={member.id} className="flex items-center gap-3 px-4 py-2">
+              <div key={member.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-white/[0.02] transition-colors">
                 <span className="shrink-0 text-xl leading-none">{member.emoji}</span>
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium text-foreground/80">{member.name}</div>
-                  <div className="text-[9px] text-muted-foreground">{member.shortRole}</div>
+                  <div className="text-sm font-medium text-foreground/80 leading-tight">{member.name}</div>
+                  <div className="text-[9px] text-muted-foreground/60 leading-tight">{member.shortRole}</div>
                 </div>
-                <div className={`font-mono text-[9px] ${statusColor}`}>
-                  {status === "working" ? "ON DUTY" : status === "collaborating" ? "COLLAB" : status === "away" ? "AWAY" : "IDLE"}
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: dotColor }} />
+                  <span className={`font-mono text-[9px] ${statusColor}`}>{statusLabel}</span>
                 </div>
-                {action && <div className="font-mono text-[9px] text-muted-foreground/50 max-w-[160px] truncate ml-2">{action}</div>}
+                {action && <div className="font-mono text-[9px] text-muted-foreground/40 max-w-[140px] truncate">{action}</div>}
               </div>
             );
           })}
