@@ -1,0 +1,44 @@
+Create a major enhancement to the Agent Office dashboard with these THREE features:
+
+1. DRAG & DROP TASK ASSIGNMENT (PRIORITY)
+- Make task packets draggable from a right-side task sidebar
+- Drop onto any agent sprite to reassign that task in real-time
+- Show visual drag preview (ghost of task packet)
+- On drop: animate green flash on agent if accepted, red if rejected
+- Draw a curved path line from origin to destination during drag
+- Need API endpoint integration for actual task reassignment
+
+2. AGENT STRESS/ENERGY METERS (VISIBLE UPGRADE)
+- Each agent has a horizontal energy bar below their status dot (52x4px)
+- Color: Green (80-100%) → Yellow (50-79%) → Orange (20-49%) → Red (0-19%)
+- Add floating stress indicator: small icon that appears when energy <30%
+- Agents move/type slower when energy low (CSS animation speed reduction)
+- Click agent to "Send Coffee" - button that restores 40% energy via API
+
+3. LIVE TASK STREAM WITH AGENT BUBBLES
+- Animated ticker tape at top showing incoming tasks (scroll left-to-right)
+- Each task card: task name + assigned agent name + priority color
+- When task arrives, it flies from ticker → lands on assigned agent's head
+- Agent shows speech bubble with task title for 2 seconds
+- Click on any incoming task before it lands to intercept and reassign
+
+TECH STACK: React 19, Tailwind CSS v4, shadcn/ui, TanStack Start
+
+Current codebase has:
+- StationRoom.tsx (agent sprites with mood lighting)
+- AgentNetworkPanel.tsx (force-graph visualization)
+- CelebrationOverlay.tsx (confetti on task completion)
+
+Integrate new features into existing Dashboard layout:
+- Top: Ticker stream (replaces empty space)
+- Right sidebar: Draggable task list (collapsible, shows pending tasks)
+- Agents: Energy bars + coffee button (tooltip on hover)
+
+Need full implementation with:
+- dnd-kit for drag and drop
+- Framer Motion for flying animations
+- Real-time WebSocket or polling for task updates (mock with setInterval for prototype)
+- Responsive design (mobile-friendly)
+
+Make it feel like a mission control command center - dramatic, interactive, alive.
+All agents (4 default: Cursor, Lovable, Replit, OpenClaw) should respond visually.

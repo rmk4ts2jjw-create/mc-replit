@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { Link } from "wouter";
+import { DndContext, type DragEndEvent, DragOverlay, type DragStartEvent } from "@dnd-kit/core";
 import { CREW } from "@/lib/crew";
 import type { LiveStationData } from "@/lib/live-data";
 import { StationFloorplan } from "./StationFloorplan";
@@ -7,9 +8,13 @@ import { AgentOffice } from "./AgentOffice";
 import { AmbientStation } from "./AmbientStation";
 import { CelebrationOverlay } from "./CelebrationOverlay";
 import { AgentNetworkPanel } from "./AgentNetworkPanel";
+import { TaskTickerStream } from "./TaskTickerStream";
+import { TaskSidebar } from "./TaskSidebar";
 import { EmptyCameo } from "./PageHeader";
 import { getRotationFact } from "@/lib/delights";
 import { useActivitySim, tasksToLevel, type SimAgentId } from "@/lib/room-energy";
+import { useTaskStream, AGENT_EMOJI, PRIORITY_COLOR } from "@/lib/task-stream";
+import type { StreamTask } from "@/lib/task-stream";
 
 const MOOD_LABEL: Record<string, string> = {
   calm: "STATION CALM", busy: "ALL HANDS BUSY", alert: "ALERT ACTIVE", critical: "CRITICAL — ACTION NEEDED",
@@ -28,7 +33,7 @@ function MoodBanner({ mood, alertLevel, activeCrons, totalCrons, uptime }: {
 }) {
   return (
     <div
-      className="glass-card flex items-center justify-between px-4 py-3 mb-4"
+      className="glass-card flex items-center justify-between px-4 py-3"
       style={{ borderLeft: `3px solid color-mix(in oklab, ${MOOD_ACCENT[mood]}, transparent 30%)` }}
     >
       <div className="flex items-center gap-3">
@@ -56,7 +61,7 @@ function MoodBanner({ mood, alertLevel, activeCrons, totalCrons, uptime }: {
 }
 
 function StatCard({ label, value, sub, accent }: {
-  label: string; value: string | number; sub?: string; trend?: "up" | "down" | "neutral"; accent?: string;
+  label: string; value: string | number; sub?: string; accent?: string;
 }) {
   return (
     <div className="glass-card px-4 py-4 flex flex-col gap-1.5">
@@ -69,9 +74,7 @@ function StatCard({ label, value, sub, accent }: {
 
 function IncidentPanel({ count, critical }: { count: number; critical: number }) {
   if (count === 0) {
-    return (
-      <EmptyCameo icon="🛡" message="No open incidents" hint="ALL DECKS NOMINAL" tone="calm" />
-    );
+    return <EmptyCameo icon="🛡" message="No open incidents" hint="ALL DECKS NOMINAL" tone="calm" />;
   }
   return (
     <div className="glass-card px-4 py-4" style={{ borderLeft: `3px solid ${critical > 0 ? "rgba(248,113,113,0.7)" : "rgba(251,146,60,0.6)"}` }}>
@@ -79,6 +82,32 @@ function IncidentPanel({ count, critical }: { count: number; critical: number })
       <div className="text-2xl font-bold metric text-red-400">{count}</div>
       {critical > 0 && <div className="text-[9px] text-red-400/70 mt-0.5">{critical} CRITICAL</div>}
       <Link href="/incidents"><div className="mt-3 font-mono text-[9px] text-muted-foreground/50 hover:text-muted-foreground cursor-pointer underline-offset-2 hover:underline transition-colors">View incidents →</div></Link>
+    </div>
+  );
+}
+
+// Drag overlay ghost card
+function DragGhostCard({ task }: { task: StreamTask }) {
+  return (
+    <div
+      className="rounded px-3 py-2 shadow-2xl pointer-events-none"
+      style={{
+        background: "rgba(4,4,18,0.94)",
+        border: `1px solid ${PRIORITY_COLOR[task.priority]}66`,
+        boxShadow: `0 10px 40px rgba(0,0,0,0.7), 0 0 16px ${PRIORITY_COLOR[task.priority]}44`,
+        backdropFilter: "blur(12px)",
+        minWidth: 160,
+      }}
+    >
+      <div className="flex items-center gap-2 mb-1">
+        <span className="font-mono text-[7px] font-bold px-1 rounded"
+          style={{ background: `${PRIORITY_COLOR[task.priority]}22`, color: PRIORITY_COLOR[task.priority] }}>
+          {task.priority.toUpperCase()}
+        </span>
+        <span className="text-[11px]">{AGENT_EMOJI[task.agentId]}</span>
+      </div>
+      <div className="font-mono text-[9px] text-foreground/80 leading-snug">{task.title}</div>
+      <div className="font-mono text-[7px] text-muted-foreground/35 mt-1">↓ Drop on agent room</div>
     </div>
   );
 }
@@ -91,11 +120,15 @@ export function Dashboard({ liveData }: DashboardProps) {
   const [visitingAgentId, setVisitingAgentId] = useState<string | null>(null);
   const [factIndex] = useState(() => Math.floor(Math.random() * 10));
   const [celebrating, setCelebrating] = useState(false);
+  const [activeDragTask, setActiveDragTask] = useState<StreamTask | null>(null);
+
   const simActivity = useActivitySim();
-  const prevTasksRef = useRef<Record<SimAgentId, number>>({ monkey: 1, lifesupport: 0, engineer: 2, archivist: 1 });
+  const taskStream  = useTaskStream();
+
+  const prevTasksRef   = useRef<Record<SimAgentId, number>>({ monkey: 1, lifesupport: 0, engineer: 2, archivist: 1 });
   const celebrateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Detect task completions → trigger celebration
+  // Celebration detection
   useEffect(() => {
     const prev = prevTasksRef.current;
     const curr = simActivity.tasks;
@@ -114,8 +147,6 @@ export function Dashboard({ liveData }: DashboardProps) {
     setVisitingAgentId(agentId);
   }, []);
 
-  // Merged task counts: take the higher of live data and simulated activity.
-  // Simulated activity keeps rooms visually busy even with zero real tasks.
   const agentTasks = useMemo(() => {
     const result: Record<string, number> = {};
     CREW.forEach(member => {
@@ -128,98 +159,138 @@ export function Dashboard({ liveData }: DashboardProps) {
 
   const hasP1 = liveData.criticalIncidents > 0;
 
+  // dnd-kit handlers
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    const task = event.active.data.current?.task as StreamTask | undefined;
+    setActiveDragTask(task ?? null);
+  }, []);
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    setActiveDragTask(null);
+    if (!event.over) return;
+    const task = event.active.data.current?.task as StreamTask | undefined;
+    if (!task) return;
+    const targetAgentId = event.over.id as SimAgentId;
+    taskStream.assignTask(task.id, targetAgentId);
+  }, [taskStream]);
+
   return (
-    <div className="flex flex-col gap-4">
-      <MoodBanner
-        mood={liveData.stationMood}
-        alertLevel={liveData.alertLevel}
-        activeCrons={liveData.activeCrons}
-        totalCrons={liveData.totalCrons}
-        uptime={liveData.uptime}
-      />
+    <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+      {/* Main layout: content + collapsible sidebar */}
+      <div className="flex gap-0 items-stretch min-h-0">
+        {/* Main column */}
+        <div className="flex-1 flex flex-col gap-4 min-w-0">
 
-      {/* Stats row */}
-      <div className="grid grid-cols-4 gap-3">
-        <StatCard label="AGENTS ACTIVE" value={liveData.agents.filter(a => a.status === "working").length} sub={`of ${liveData.agents.length} crew`} accent="text-[oklch(0.88_0.18_145)]" />
-        <StatCard label="ACTIVE CRONS" value={liveData.activeCrons} sub={`/ ${liveData.totalCrons} total`} />
-        <StatCard label="ERRORS" value={liveData.errorCount} sub={liveData.errorCount > 0 ? "needs attention" : "all clear"} accent={liveData.errorCount > 0 ? "text-red-400" : undefined} />
-        <StatCard label="QUEUE PRESSURE" value={`${liveData.queuePressure}%`} sub={liveData.queuePressure > 60 ? "high load" : "nominal"} accent={liveData.queuePressure > 60 ? "text-orange-400" : undefined} />
-      </div>
+          {/* Ticker stream */}
+          <TaskTickerStream tasks={taskStream.tickerTasks} onIntercept={taskStream.dismissTask} />
 
-      {/* Station floorplan — CelebrationOverlay fires on task completion */}
-      <div className="relative">
-        <AmbientStation mood={liveData.stationMood}>
-          <StationFloorplan
-            enableVisits
-            onVisitingAgentChange={handleVisitingAgentChange}
-            criticalIncidents={liveData.criticalIncidents}
-            agentTasks={agentTasks}
-          >
-            {CREW.map(member => {
-              const liveStatus = liveData.agents.find(a => a.id === member.id);
-              const isAway = visitingAgentId === member.id;
-              const wl = tasksToLevel(
-                agentTasks[member.id] ?? 0,
-                hasP1 && member.id === "monkey",
-              );
-              return (
-                <AgentOffice
-                  key={member.id}
-                  crew={member}
-                  liveStatus={liveStatus}
-                  isAway={isAway}
-                  workloadLevel={wl}
-                />
-              );
-            })}
-          </StationFloorplan>
-        </AmbientStation>
-        <CelebrationOverlay active={celebrating} />
-      </div>
+          <MoodBanner
+            mood={liveData.stationMood}
+            alertLevel={liveData.alertLevel}
+            activeCrons={liveData.activeCrons}
+            totalCrons={liveData.totalCrons}
+            uptime={liveData.uptime}
+          />
 
-      {/* Agent network + incidents row */}
-      <div className="grid grid-cols-3 gap-3">
-        <div className="col-span-2">
-          <AgentNetworkPanel simActivity={simActivity} />
+          {/* Stats row */}
+          <div className="grid grid-cols-4 gap-3">
+            <StatCard label="AGENTS ACTIVE" value={liveData.agents.filter(a => a.status === "working").length} sub={`of ${liveData.agents.length} crew`} accent="text-[oklch(0.88_0.18_145)]" />
+            <StatCard label="ACTIVE CRONS" value={liveData.activeCrons} sub={`/ ${liveData.totalCrons} total`} />
+            <StatCard label="ERRORS" value={liveData.errorCount} sub={liveData.errorCount > 0 ? "needs attention" : "all clear"} accent={liveData.errorCount > 0 ? "text-red-400" : undefined} />
+            <StatCard label="QUEUE PRESSURE" value={`${liveData.queuePressure}%`} sub={liveData.queuePressure > 60 ? "high load" : "nominal"} accent={liveData.queuePressure > 60 ? "text-orange-400" : undefined} />
+          </div>
+
+          {/* Station floorplan */}
+          <div className="relative">
+            <AmbientStation mood={liveData.stationMood}>
+              <StationFloorplan
+                enableVisits
+                onVisitingAgentChange={handleVisitingAgentChange}
+                criticalIncidents={liveData.criticalIncidents}
+                agentTasks={agentTasks}
+              >
+                {CREW.map(member => {
+                  const liveStatus = liveData.agents.find(a => a.id === member.id);
+                  const isAway = visitingAgentId === member.id;
+                  const wl = tasksToLevel(
+                    agentTasks[member.id] ?? 0,
+                    hasP1 && member.id === "monkey",
+                  );
+                  const agentId = member.id as SimAgentId;
+                  return (
+                    <AgentOffice
+                      key={member.id}
+                      crew={member}
+                      liveStatus={liveStatus}
+                      isAway={isAway}
+                      workloadLevel={wl}
+                      speechBubble={taskStream.speechBubbles[agentId]}
+                      flashState={taskStream.agentFlash[agentId]}
+                      energyBoosted={taskStream.energyBoosts[agentId]}
+                      onCoffeeSent={taskStream.boostEnergy}
+                    />
+                  );
+                })}
+              </StationFloorplan>
+            </AmbientStation>
+            <CelebrationOverlay active={celebrating} />
+          </div>
+
+          {/* Agent network + incidents */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="col-span-2">
+              <AgentNetworkPanel simActivity={simActivity} />
+            </div>
+            <IncidentPanel count={liveData.openIncidents} critical={liveData.criticalIncidents} />
+          </div>
+
+          {/* Station Intel */}
+          <div className="glass-card px-4 py-3">
+            <div className="label-tracked mb-1.5">STATION INTEL</div>
+            <div className="text-[11px] text-foreground/65 italic leading-relaxed">{getRotationFact(factIndex)}</div>
+          </div>
+
+          {/* Crew status table */}
+          <div className="glass-card overflow-hidden">
+            <div className="px-4 py-2.5 border-b border-border/40 label-tracked">CREW STATUS</div>
+            <div className="divide-y divide-border/30">
+              {CREW.map(member => {
+                const live = liveData.agents.find(a => a.id === member.id);
+                const status = live?.status || "idle";
+                const action = live?.currentAction;
+                const isActive = status === "working" || status === "collaborating";
+                const dotColor = isActive ? "#40d080" : status === "away" ? "#555" : "#444";
+                const statusLabel = status === "working" ? "ON DUTY" : status === "collaborating" ? "COLLAB" : status === "away" ? "AWAY" : "IDLE";
+                const statusColor = isActive ? "text-[oklch(0.88_0.18_145)]" : status === "away" ? "text-muted-foreground/35" : "text-muted-foreground/50";
+                return (
+                  <div key={member.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-white/[0.02] transition-colors">
+                    <span className="shrink-0 text-xl leading-none">{member.emoji}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-foreground/80 leading-tight">{member.name}</div>
+                      <div className="text-[9px] text-muted-foreground/60 leading-tight">{member.shortRole}</div>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: dotColor }} />
+                      <span className={`font-mono text-[9px] ${statusColor}`}>{statusLabel}</span>
+                    </div>
+                    {action && <div className="font-mono text-[9px] text-muted-foreground/40 max-w-[140px] truncate">{action}</div>}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
-        <IncidentPanel count={liveData.openIncidents} critical={liveData.criticalIncidents} />
-      </div>
 
-      {/* Space fact */}
-      <div className="glass-card px-4 py-3">
-        <div className="label-tracked mb-1.5">STATION INTEL</div>
-        <div className="text-[11px] text-foreground/65 italic leading-relaxed">{getRotationFact(factIndex)}</div>
-      </div>
-
-      {/* Agent status table */}
-      <div className="glass-card overflow-hidden">
-        <div className="px-4 py-2.5 border-b border-border/40 label-tracked">CREW STATUS</div>
-        <div className="divide-y divide-border/30">
-          {CREW.map(member => {
-            const live = liveData.agents.find(a => a.id === member.id);
-            const status = live?.status || "idle";
-            const action = live?.currentAction;
-            const isActive = status === "working" || status === "collaborating";
-            const dotColor = isActive ? "#40d080" : status === "away" ? "#555" : "#444";
-            const statusLabel = status === "working" ? "ON DUTY" : status === "collaborating" ? "COLLAB" : status === "away" ? "AWAY" : "IDLE";
-            const statusColor = isActive ? "text-[oklch(0.88_0.18_145)]" : status === "away" ? "text-muted-foreground/35" : "text-muted-foreground/50";
-            return (
-              <div key={member.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-white/[0.02] transition-colors">
-                <span className="shrink-0 text-xl leading-none">{member.emoji}</span>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium text-foreground/80 leading-tight">{member.name}</div>
-                  <div className="text-[9px] text-muted-foreground/60 leading-tight">{member.shortRole}</div>
-                </div>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: dotColor }} />
-                  <span className={`font-mono text-[9px] ${statusColor}`}>{statusLabel}</span>
-                </div>
-                {action && <div className="font-mono text-[9px] text-muted-foreground/40 max-w-[140px] truncate">{action}</div>}
-              </div>
-            );
-          })}
+        {/* Task sidebar */}
+        <div className="flex items-stretch ml-2 shrink-0">
+          <TaskSidebar tasks={taskStream.pendingTasks} onDismiss={taskStream.dismissTask} />
         </div>
       </div>
-    </div>
+
+      {/* Drag overlay — follows cursor */}
+      <DragOverlay dropAnimation={null}>
+        {activeDragTask ? <DragGhostCard task={activeDragTask} /> : null}
+      </DragOverlay>
+    </DndContext>
   );
 }

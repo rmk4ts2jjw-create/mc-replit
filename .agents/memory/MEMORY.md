@@ -1,2 +1,3 @@
 - [Mission Control workload system](workload-system.md) — WorkloadLevel drives room energy; levelRef pattern for RoomCanvas; no oklch in canvas.
 - [Mission Control sim activity](sim-activity.md) — useActivitySim merges with live data via Math.max to keep rooms visually busy.
+- [dnd-kit hooks ordering](dnd-kit-hooks.md) — useDroppable/useDraggable must be called before any early return or React crashes with "Invalid hook call".
