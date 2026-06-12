@@ -1,0 +1,94 @@
+🚀 BIG IMPROVEMENTS FOR AGENT OFFICE
+
+Looking at the current Agent Office setup (canvas sprites, crew visits, mood lighting, task packets, collaboration beams), here are major enhancements that would transform the experience:
+
+1. REAL-TIME AGENT ACTIVITY MAP 🌍
+
+Current: Static sprites with mood lighting
+
+Big Improvement:
+
+Mini-map overlay showing where agents are "traveling" between tasks
+Agents ping locations when working on specific projects
+Heat zones showing where most activity is happening
+Real-time agent "thought bubbles" appearing when they process tasks
+Why big: Makes the office feel alive, not just decorative
+
+2. COLLABORATION NETWORK VISUALIZER 🔗
+
+Current: Simple beams between agents
+
+Big Improvement:
+
+Force-directed graph showing which agents work together most
+Thicker beams = more collaboration
+Agents drift toward each other when actively pairing
+Click any agent → shows their recent task partners
+"Momentum" physics — beams pulse when tasks are being passed
+Why big: Turns abstract collaboration into a tangible network you can see evolving
+
+3. STRESS/ENERGY METER FOR EACH AGENT ⚡
+
+Current: Mood lighting (vague)
+
+Big Improvement:
+
+Individual stress gauges (green → yellow → red)
+Energy batteries draining as agents work
+Agents move faster or slower based on energy level
+Red-stress agents send distress signals (flashing icons)
+You can click to "send coffee" (refills energy via API call)
+Why big: Makes agent health visible and actionable, not just cosmetic
+
+4. DRAG & DROP TASK ASSIGNMENT 🎯
+
+Current: Task packets float in
+
+Big Improvement:
+
+Grab a task packet from the right sidebar
+Drag onto an agent → reassigns task in real-time
+Agents show accept/reject animation (green/red flash)
+Dropping between two agents creates pair programming session
+Visual feedback path tracing where the task came from
+Why big: Turns passive viewing into active management
+
+5. MISSION TIMELINE SCRUBBER 📅
+
+Current: No temporal context
+
+Big Improvement:
+
+Timeline slider at bottom (last 24 hours → next 24 hours)
+Agents rewind/replay their past positions and tasks
+Preview scheduled tasks before they arrive
+Agents show ghost paths of where they'll be
+Skip forward to see who's about to get overloaded
+Why big: Adds strategic planning to what's currently just monitoring
+
+6. AGENT RELATIONSHIP MAP 💞
+
+Current: Generic collaboration
+
+Big Improvement:
+
+Agents develop favorite partners over time
+Cliques form around certain task types
+Rivalry sparks (red crackle beams) when agents compete for same task
+"Mentor" relationships (senior agents training juniors)
+Relationship strength decays if agents don't interact
+Why big: Adds emergent storytelling — every session feels different
+
+🏆 MY TOP PICK FOR BIGGEST IMPACT
+
+#4: Drag & Drop Task Assignment
+
+This changes Agent Office from a screensaver into a command center. Right now it's beautiful but passive. With DnD:
+
+You see a bottleneck → drag task to a free agent
+Agent accepts → API call updates actual task assignment
+Real-time feedback loop between UI and system
+Makes the office the primary control interface, not just eye candy
+Implementation complexity: Medium (uses React DnD or dnd-kit)
+User value: Very High (saves clicks, feels magical)
+WOW factor: Off the charts

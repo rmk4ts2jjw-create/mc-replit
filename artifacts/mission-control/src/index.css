@@ -466,6 +466,13 @@
   filter: drop-shadow(0 0 0.6px currentColor);
 }
 
+/* ── Celebration confetti ───────────────────────────────────────────────── */
+@keyframes celebration-fall {
+  0%   { transform: translateY(0) rotate(0deg);   opacity: 1;   }
+  80%  { opacity: 0.6; }
+  100% { transform: translateY(110vh) rotate(480deg); opacity: 0; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .agent-idle, .agent-working, .agent-walking, .agent-sleeping,
   .station-hub-pulse, .station-doorway, .page-transition,

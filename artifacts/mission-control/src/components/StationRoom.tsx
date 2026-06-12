@@ -8,7 +8,7 @@ import { CrewSprite } from "./CrewSprite";
 import type { AgentActivity } from "@/lib/station-state";
 import type { RoomType } from "./RoomCanvas";
 import type { SpritePose } from "@/lib/crew-sprites";
-import { type WorkloadLevel } from "@/lib/room-energy";
+import { type WorkloadLevel, levelToEnergy } from "@/lib/room-energy";
 
 const ROOM_TYPE_MAP: Record<string, RoomType> = {
   command: "command", security: "security", workshop: "workshop", archive: "archive",
@@ -267,7 +267,7 @@ export function StationRoom({
           {isWorking && (
             <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 flex gap-0.5">
               {[0, 0.2, 0.4].map(d => (
-                <div key={d} className="w-1 h-1 rounded-full agent-typing-dot" style={{ backgroundColor: accent, animationDelay: `${d}s` }} />
+                <div key={d} className="w-1 h-1 rounded-full" style={{ backgroundColor: accent, animation: `agent-typing-dot 0.6s ease-in-out ${d}s infinite` }} />
               ))}
             </div>
           )}
@@ -299,6 +299,23 @@ export function StationRoom({
             <span className={`inline-block w-1.5 h-1.5 rounded-full ${isAway ? "bg-muted-foreground/30" : stateConfig.dotClass}`} />
             <span className="font-mono text-[6px] text-muted-foreground/60">{isAway ? "AWAY" : stateConfig.label}</span>
           </div>
+          {/* Energy bar */}
+          {(() => {
+            const e = levelToEnergy(workloadLevel || "idle");
+            const pct = Math.max(4, Math.round(e * 100));
+            const energyHex = workloadLevel === "critical" ? "#d03030"
+              : workloadLevel === "heavy"    ? "#e06020"
+              : workloadLevel === "medium"   ? "#c8a010"
+              : workloadLevel === "light"    ? "#40c870"
+              : "#1e3a28";
+            return (
+              <div className="flex items-center justify-center mt-1">
+                <div className="w-[52px] h-[2px] rounded-full overflow-hidden" style={{ background: "rgba(0,0,0,0.45)" }}>
+                  <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, backgroundColor: energyHex }} />
+                </div>
+              </div>
+            );
+          })()}
         </div>
 
         {isWorking && terminalLines.length > 0 && (

@@ -1,12 +1,12 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { Link } from "wouter";
-import { motion } from "framer-motion";
 import { CREW } from "@/lib/crew";
 import type { LiveStationData } from "@/lib/live-data";
 import { StationFloorplan } from "./StationFloorplan";
 import { AgentOffice } from "./AgentOffice";
 import { AmbientStation } from "./AmbientStation";
-import { TaskFlowSignals } from "./TaskFlowSignals";
+import { CelebrationOverlay } from "./CelebrationOverlay";
+import { AgentNetworkPanel } from "./AgentNetworkPanel";
 import { EmptyCameo } from "./PageHeader";
 import { getRotationFact } from "@/lib/delights";
 import { useActivitySim, tasksToLevel, type SimAgentId } from "@/lib/room-energy";
@@ -90,7 +90,25 @@ interface DashboardProps {
 export function Dashboard({ liveData }: DashboardProps) {
   const [visitingAgentId, setVisitingAgentId] = useState<string | null>(null);
   const [factIndex] = useState(() => Math.floor(Math.random() * 10));
+  const [celebrating, setCelebrating] = useState(false);
   const simActivity = useActivitySim();
+  const prevTasksRef = useRef<Record<SimAgentId, number>>({ monkey: 1, lifesupport: 0, engineer: 2, archivist: 1 });
+  const celebrateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Detect task completions → trigger celebration
+  useEffect(() => {
+    const prev = prevTasksRef.current;
+    const curr = simActivity.tasks;
+    const anyBigDrop = (Object.keys(curr) as SimAgentId[]).some(id => {
+      return (prev[id] ?? 0) >= 3 && (curr[id] ?? 0) <= 1;
+    });
+    if (anyBigDrop) {
+      setCelebrating(true);
+      if (celebrateTimer.current) clearTimeout(celebrateTimer.current);
+      celebrateTimer.current = setTimeout(() => setCelebrating(false), 2800);
+    }
+    prevTasksRef.current = { ...curr };
+  }, [simActivity.tasks]);
 
   const handleVisitingAgentChange = useCallback((agentId: string | null) => {
     setVisitingAgentId(agentId);
@@ -110,15 +128,6 @@ export function Dashboard({ liveData }: DashboardProps) {
 
   const hasP1 = liveData.criticalIncidents > 0;
 
-  const packets = liveData.agents
-    .filter(a => a.status === "working" || a.status === "collaborating")
-    .map(a => ({
-      id: `${a.id}-flow`,
-      from: a.id,
-      to: a.status === "collaborating" ? CREW.find(c => c.id !== a.id)?.id || "monkey" : "monkey",
-      progress: Math.floor(Math.random() * 100),
-    }));
-
   return (
     <div className="flex flex-col gap-4">
       <MoodBanner
@@ -137,42 +146,41 @@ export function Dashboard({ liveData }: DashboardProps) {
         <StatCard label="QUEUE PRESSURE" value={`${liveData.queuePressure}%`} sub={liveData.queuePressure > 60 ? "high load" : "nominal"} accent={liveData.queuePressure > 60 ? "text-orange-400" : undefined} />
       </div>
 
-      {/* Station floorplan */}
-      <AmbientStation mood={liveData.stationMood}>
-        <StationFloorplan
-          enableVisits
-          onVisitingAgentChange={handleVisitingAgentChange}
-          criticalIncidents={liveData.criticalIncidents}
-          agentTasks={agentTasks}
-        >
-          {CREW.map(member => {
-            const liveStatus = liveData.agents.find(a => a.id === member.id);
-            const isAway = visitingAgentId === member.id;
-            const wl = tasksToLevel(
-              agentTasks[member.id] ?? 0,
-              hasP1 && member.id === "monkey",
-            );
-            return (
-              <AgentOffice
-                key={member.id}
-                crew={member}
-                liveStatus={liveStatus}
-                isAway={isAway}
-                workloadLevel={wl}
-              />
-            );
-          })}
-        </StationFloorplan>
-      </AmbientStation>
+      {/* Station floorplan — CelebrationOverlay fires on task completion */}
+      <div className="relative">
+        <AmbientStation mood={liveData.stationMood}>
+          <StationFloorplan
+            enableVisits
+            onVisitingAgentChange={handleVisitingAgentChange}
+            criticalIncidents={liveData.criticalIncidents}
+            agentTasks={agentTasks}
+          >
+            {CREW.map(member => {
+              const liveStatus = liveData.agents.find(a => a.id === member.id);
+              const isAway = visitingAgentId === member.id;
+              const wl = tasksToLevel(
+                agentTasks[member.id] ?? 0,
+                hasP1 && member.id === "monkey",
+              );
+              return (
+                <AgentOffice
+                  key={member.id}
+                  crew={member}
+                  liveStatus={liveStatus}
+                  isAway={isAway}
+                  workloadLevel={wl}
+                />
+              );
+            })}
+          </StationFloorplan>
+        </AmbientStation>
+        <CelebrationOverlay active={celebrating} />
+      </div>
 
-      {/* Task flow + incidents row */}
+      {/* Agent network + incidents row */}
       <div className="grid grid-cols-3 gap-3">
         <div className="col-span-2">
-          {packets.length > 0 ? (
-            <TaskFlowSignals packets={packets} />
-          ) : (
-            <EmptyCameo icon="📡" message="No active task flows" hint="QUEUE IS CLEAR" tone="calm" />
-          )}
+          <AgentNetworkPanel simActivity={simActivity} />
         </div>
         <IncidentPanel count={liveData.openIncidents} critical={liveData.criticalIncidents} />
       </div>
