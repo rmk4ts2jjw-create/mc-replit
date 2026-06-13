@@ -95,16 +95,6 @@ export function AgentNetworkPanel({ simActivity }: Props) {
                     strokeOpacity={bothActive ? 0.55 + strength * 0.3 : 0.08}
                     strokeDasharray={bothActive ? "none" : "2 4"}
                   />
-                  {bothActive && (
-                    <>
-                      <circle r="2.2" fill={na.hex} fillOpacity="0.9">
-                        <animateMotion dur={`${dur}s`} repeatCount="indefinite" path={pathD} />
-                      </circle>
-                      <circle r="2.2" fill={nb.hex} fillOpacity="0.9">
-                        <animateMotion dur={`${dur * 0.85}s`} repeatCount="indefinite" path={`M ${nb.x} ${nb.y} L ${na.x} ${na.y}`} />
-                      </circle>
-                    </>
-                  )}
                 </g>
               );
             })}
