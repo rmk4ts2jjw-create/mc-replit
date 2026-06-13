@@ -15,6 +15,7 @@ import { getRotationFact } from "@/lib/delights";
 import { useActivitySim, tasksToLevel, type SimAgentId } from "@/lib/room-energy";
 import { useTaskStream, AGENT_EMOJI, PRIORITY_COLOR } from "@/lib/task-stream";
 import type { StreamTask } from "@/lib/task-stream";
+import { EventLog } from "./EventLog";
 
 const MOOD_LABEL: Record<string, string> = {
   calm: "STATION CALM", busy: "ALL HANDS BUSY", alert: "ALERT ACTIVE", critical: "CRITICAL — ACTION NEEDED",
@@ -86,6 +87,66 @@ function IncidentPanel({ count, critical }: { count: number; critical: number })
   );
 }
 
+// ── Agent task history + sparklines ────────────────────────────────────────
+const AGENT_HEX: Record<string, string> = {
+  monkey: "#60b8ff", lifesupport: "#ff5c9e", engineer: "#30e8e0", archivist: "#ffb820",
+};
+
+function useAgentHistory(agentTasks: Record<string, number>) {
+  const [history, setHistory] = useState<Record<string, number[]>>({
+    monkey: [1], lifesupport: [0], engineer: [2], archivist: [1],
+  });
+  useEffect(() => {
+    const id = setInterval(() => {
+      setHistory(prev => {
+        const next: Record<string, number[]> = {};
+        ["monkey", "lifesupport", "engineer", "archivist"].forEach(id => {
+          next[id] = [...(prev[id] ?? []), agentTasks[id] ?? 0].slice(-14);
+        });
+        return next;
+      });
+    }, 3000);
+    return () => clearInterval(id);
+  }, [agentTasks]);
+  return history;
+}
+
+function Sparkline({ data, color }: { data: number[]; color: string }) {
+  if (data.length < 2) {
+    return <div style={{ width: 44, height: 14, opacity: 0.15, background: color, borderRadius: 2 }} />;
+  }
+  const w = 44, h = 14;
+  const max = Math.max(...data, 1);
+  const pts = data.map((v, i) =>
+    `${(i / (data.length - 1)) * w},${h - Math.max(1, (v / max) * h)}`
+  ).join(" ");
+  return (
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} className="overflow-visible shrink-0">
+      <defs>
+        <linearGradient id={`sg-${color.replace("#", "")}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.18" />
+          <stop offset="100%" stopColor={color} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      {/* Area fill */}
+      <polygon
+        points={`0,${h} ${pts} ${w},${h}`}
+        fill={`url(#sg-${color.replace("#", "")})`}
+      />
+      {/* Line */}
+      <polyline points={pts} fill="none" stroke={color} strokeWidth="1.5"
+        strokeLinejoin="round" strokeLinecap="round" opacity="0.82" />
+      {/* Last-point dot */}
+      {data.length > 1 && (() => {
+        const last = data[data.length - 1];
+        const x = w;
+        const y = h - Math.max(1, (last / max) * h);
+        return <circle cx={x} cy={y} r="2" fill={color} opacity="0.9" />;
+      })()}
+    </svg>
+  );
+}
+
 // Drag overlay ghost card
 function DragGhostCard({ task }: { task: StreamTask }) {
   return (
@@ -143,6 +204,14 @@ export function Dashboard({ liveData }: DashboardProps) {
     prevTasksRef.current = { ...curr };
   }, [simActivity.tasks]);
 
+  // Log celebration events
+  useEffect(() => {
+    if (celebrating) {
+      taskStream.logEvent({ type: "celebrated", message: "🎊 Station celebration — task load cleared!", icon: "🎊" });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [celebrating]);
+
   const handleVisitingAgentChange = useCallback((agentId: string | null) => {
     setVisitingAgentId(agentId);
   }, []);
@@ -158,6 +227,7 @@ export function Dashboard({ liveData }: DashboardProps) {
   }, [liveData.agents, simActivity.tasks]);
 
   const hasP1 = liveData.criticalIncidents > 0;
+  const agentHistory = useAgentHistory(agentTasks);
 
   // dnd-kit handlers
   const handleDragStart = useCallback((event: DragStartEvent) => {
@@ -244,15 +314,23 @@ export function Dashboard({ liveData }: DashboardProps) {
             <IncidentPanel count={liveData.openIncidents} critical={liveData.criticalIncidents} />
           </div>
 
-          {/* Station Intel */}
-          <div className="glass-card px-4 py-3">
-            <div className="label-tracked mb-1.5">STATION INTEL</div>
-            <div className="text-[11px] text-foreground/65 italic leading-relaxed">{getRotationFact(factIndex)}</div>
+          {/* Station Log + Intel row */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="col-span-2">
+              <EventLog events={taskStream.recentEvents} />
+            </div>
+            <div className="glass-card px-4 py-3 flex flex-col">
+              <div className="label-tracked mb-2">STATION INTEL</div>
+              <div className="text-[10px] text-foreground/55 italic leading-relaxed flex-1">{getRotationFact(factIndex)}</div>
+            </div>
           </div>
 
           {/* Crew status table */}
           <div className="glass-card overflow-hidden">
-            <div className="px-4 py-2.5 border-b border-border/40 label-tracked">CREW STATUS</div>
+            <div className="px-4 py-2.5 border-b border-border/40 flex items-center justify-between">
+              <div className="label-tracked">CREW STATUS</div>
+              <div className="font-mono text-[7px] text-muted-foreground/30">TASKS · TREND</div>
+            </div>
             <div className="divide-y divide-border/30">
               {CREW.map(member => {
                 const live = liveData.agents.find(a => a.id === member.id);
@@ -262,6 +340,9 @@ export function Dashboard({ liveData }: DashboardProps) {
                 const dotColor = isActive ? "#40d080" : status === "away" ? "#555" : "#444";
                 const statusLabel = status === "working" ? "ON DUTY" : status === "collaborating" ? "COLLAB" : status === "away" ? "AWAY" : "IDLE";
                 const statusColor = isActive ? "text-[oklch(0.88_0.18_145)]" : status === "away" ? "text-muted-foreground/35" : "text-muted-foreground/50";
+                const taskCount = agentTasks[member.id] ?? 0;
+                const hex = AGENT_HEX[member.id] ?? "#60b8ff";
+                const hist = agentHistory[member.id] ?? [taskCount];
                 return (
                   <div key={member.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-white/[0.02] transition-colors">
                     <span className="shrink-0 text-xl leading-none">{member.emoji}</span>
@@ -269,11 +350,30 @@ export function Dashboard({ liveData }: DashboardProps) {
                       <div className="text-sm font-medium text-foreground/80 leading-tight">{member.name}</div>
                       <div className="text-[9px] text-muted-foreground/60 leading-tight">{member.shortRole}</div>
                     </div>
+                    {/* Status */}
                     <div className="flex items-center gap-1.5 shrink-0">
                       <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: dotColor }} />
                       <span className={`font-mono text-[9px] ${statusColor}`}>{statusLabel}</span>
                     </div>
-                    {action && <div className="font-mono text-[9px] text-muted-foreground/40 max-w-[140px] truncate">{action}</div>}
+                    {/* Current task action */}
+                    {action && <div className="font-mono text-[9px] text-muted-foreground/40 max-w-[100px] truncate hidden lg:block">{action}</div>}
+                    {/* Task count badge */}
+                    {taskCount > 0 && (
+                      <div
+                        className="shrink-0 font-mono text-[8px] font-bold px-1.5 py-0.5 rounded-full"
+                        style={{
+                          background: `${hex}18`,
+                          border: `1px solid ${hex}38`,
+                          color: hex,
+                          minWidth: 22,
+                          textAlign: "center",
+                        }}
+                      >
+                        {taskCount}
+                      </div>
+                    )}
+                    {/* Sparkline */}
+                    <Sparkline data={hist} color={hex} />
                   </div>
                 );
               })}

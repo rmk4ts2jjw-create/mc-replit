@@ -1,4 +1,4 @@
-// task-stream.ts — mock task stream: ticker tasks, pending drag tasks, energy boosts
+// task-stream.ts — mock task stream: ticker tasks, pending drag tasks, energy boosts, event log
 import { useState, useEffect, useRef, useCallback } from "react";
 import type { SimAgentId } from "./room-energy";
 
@@ -23,12 +23,35 @@ export interface StreamTask {
   state: "ticking" | "assigning" | "done";
 }
 
+export type LogEventType = "assigned" | "intercepted" | "boosted" | "celebrated" | "spawned";
+
+export interface LogEvent {
+  id: string;
+  type: LogEventType;
+  agentId?: SimAgentId;
+  message: string;
+  icon: string;
+  ts: number;
+}
+
 export const AGENT_EMOJI: Record<SimAgentId, string> = {
   monkey: "🛰", lifesupport: "🔬", engineer: "⚙️", archivist: "📁",
 };
 
+export const AGENT_NAME: Record<SimAgentId, string> = {
+  monkey: "Space Monkey", lifesupport: "Life Support", engineer: "Engineer", archivist: "Archivist",
+};
+
 export const PRIORITY_COLOR: Record<TaskPriority, string> = {
   critical: "#ff4040", high: "#ff9020", medium: "#c0a020", low: "#40a870",
+};
+
+export const LOG_EVENT_COLOR: Record<LogEventType, string> = {
+  assigned:     "#40d080",
+  intercepted:  "#e0b020",
+  boosted:      "#ff9020",
+  celebrated:   "#f5c840",
+  spawned:      "#60b8ff",
 };
 
 const AGENT_IDS: SimAgentId[] = ["monkey", "lifesupport", "engineer", "archivist"];
@@ -55,20 +78,35 @@ function makeTask(): StreamTask {
   };
 }
 
+// Seed a few initial tasks so the UI isn't empty on first render
+function makeSeedTasks(): StreamTask[] {
+  return Array.from({ length: 3 }, makeTask);
+}
+
 export interface TaskStreamState {
   tickerTasks: StreamTask[];
   pendingTasks: StreamTask[];
+  recentEvents: LogEvent[];
   speechBubbles: Partial<Record<SimAgentId, string>>;
   agentFlash: Partial<Record<SimAgentId, "accept" | "reject">>;
   energyBoosts: Partial<Record<SimAgentId, boolean>>;
   assignTask: (taskId: string, toAgent: SimAgentId) => void;
   boostEnergy: (agentId: SimAgentId) => void;
   dismissTask: (taskId: string) => void;
+  logEvent: (event: Omit<LogEvent, "id" | "ts">) => void;
 }
 
 export function useTaskStream(): TaskStreamState {
-  const [tickerTasks, setTickerTasks] = useState<StreamTask[]>([]);
-  const [pendingTasks, setPendingTasks] = useState<StreamTask[]>([]);
+  const [tickerTasks, setTickerTasks] = useState<StreamTask[]>(() => {
+    const seeds = makeSeedTasks();
+    return seeds;
+  });
+  const [pendingTasks, setPendingTasks] = useState<StreamTask[]>(() => {
+    return [makeTask(), makeTask()];
+  });
+  const [recentEvents, setRecentEvents] = useState<LogEvent[]>(() => [{
+    id: nextId(), type: "spawned", message: "Station systems online — task stream active", icon: "📡", ts: Date.now(),
+  }]);
   const [speechBubbles, setSpeechBubbles] = useState<Partial<Record<SimAgentId, string>>>({});
   const [agentFlash, setAgentFlash]  = useState<Partial<Record<SimAgentId, "accept" | "reject">>>({});
   const [energyBoosts, setEnergyBoosts] = useState<Partial<Record<SimAgentId, boolean>>>({});
@@ -78,6 +116,18 @@ export function useTaskStream(): TaskStreamState {
   const bubbleTimers    = useRef<Partial<Record<string, ReturnType<typeof setTimeout>>>>({});
   const boostTimers     = useRef<Partial<Record<string, ReturnType<typeof setTimeout>>>>({});
   const autoTimers      = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
+  // Register seed tasks in registry
+  const seedRegistered = useRef(false);
+  if (!seedRegistered.current) {
+    tickerTasks.forEach(t => taskRegistryRef.current.set(t.id, t));
+    pendingTasks.forEach(t => taskRegistryRef.current.set(t.id, t));
+    seedRegistered.current = true;
+  }
+
+  const addEvent = useCallback((event: Omit<LogEvent, "id" | "ts">) => {
+    setRecentEvents(prev => [{ ...event, id: nextId(), ts: Date.now() }, ...prev].slice(0, 24));
+  }, []);
 
   const fireFlash = useCallback((agentId: SimAgentId, kind: "accept" | "reject") => {
     setAgentFlash(prev => ({ ...prev, [agentId]: kind }));
@@ -106,9 +156,16 @@ export function useTaskStream(): TaskStreamState {
   const assignTask = useCallback((taskId: string, toAgent: SimAgentId) => {
     const task = taskRegistryRef.current.get(taskId);
     removeTask(taskId);
-    fireBubble(toAgent, task?.title ?? "Incoming task");
+    const title = task?.title ?? "Incoming task";
+    fireBubble(toAgent, title);
     fireFlash(toAgent, "accept");
-  }, [removeTask, fireBubble, fireFlash]);
+    addEvent({
+      type: "assigned",
+      agentId: toAgent,
+      message: `${AGENT_EMOJI[toAgent]} ${AGENT_NAME[toAgent]} — ${title}`,
+      icon: "✓",
+    });
+  }, [removeTask, fireBubble, fireFlash, addEvent]);
 
   const boostEnergy = useCallback((agentId: SimAgentId) => {
     setEnergyBoosts(prev => ({ ...prev, [agentId]: true }));
@@ -117,50 +174,79 @@ export function useTaskStream(): TaskStreamState {
     boostTimers.current[agentId] = setTimeout(() => {
       setEnergyBoosts(prev => { const n = { ...prev }; delete n[agentId]; return n; });
     }, 9000);
-  }, [fireBubble]);
+    addEvent({
+      type: "boosted",
+      agentId,
+      message: `☕ ${AGENT_NAME[agentId]} refueled — energy restored`,
+      icon: "☕",
+    });
+  }, [fireBubble, addEvent]);
 
   const dismissTask = useCallback((taskId: string) => {
+    const task = taskRegistryRef.current.get(taskId);
     removeTask(taskId);
-  }, [removeTask]);
+    if (task) {
+      addEvent({
+        type: "intercepted",
+        message: `↩ Task intercepted: "${task.title}"`,
+        icon: "↩",
+      });
+    }
+  }, [removeTask, addEvent]);
 
   // Spawn new tasks every 3-6 seconds
   useEffect(() => {
+    // Schedule auto-assign for seed ticker tasks
+    tickerTasks.forEach(task => {
+      if (!autoTimers.current.has(task.id)) {
+        const delay = 4000 + Math.random() * 4000;
+        const timer = setTimeout(() => assignTask(task.id, task.agentId), delay);
+        autoTimers.current.set(task.id, timer);
+      }
+    });
+    pendingTasks.forEach(task => {
+      if (!autoTimers.current.has(task.id)) {
+        const timer = setTimeout(() => removeTask(task.id), 18000 + Math.random() * 4000);
+        autoTimers.current.set(task.id, timer);
+      }
+    });
+
     const spawnNext = () => {
       const task = makeTask();
       taskRegistryRef.current.set(task.id, task);
 
-      // 60% to ticker, 40% to pending sidebar
       if (Math.random() < 0.6) {
-        setTickerTasks(prev => {
-          const next = [task, ...prev].slice(0, 7);
-          return next;
-        });
-        // Auto-assign after 5-10s
+        setTickerTasks(prev => [task, ...prev].slice(0, 7));
         const delay = 5000 + Math.random() * 5000;
-        const timer = setTimeout(() => {
-          assignTask(task.id, task.agentId);
-        }, delay);
+        const timer = setTimeout(() => assignTask(task.id, task.agentId), delay);
         autoTimers.current.set(task.id, timer);
       } else {
         setPendingTasks(prev => [task, ...prev].slice(0, 10));
-        // Auto-dismiss pending after 20s
-        const timer = setTimeout(() => { removeTask(task.id); }, 20000);
+        const timer = setTimeout(() => removeTask(task.id), 20000);
         autoTimers.current.set(task.id, timer);
       }
+
+      addEvent({
+        type: "spawned",
+        agentId: task.agentId,
+        message: `📥 New task queued → ${AGENT_NAME[task.agentId]}: "${task.title}"`,
+        icon: "📥",
+      });
 
       return setTimeout(spawnNext, 3000 + Math.random() * 3000);
     };
 
-    const root = setTimeout(spawnNext, 1200);
+    const root = setTimeout(spawnNext, 2000);
     return () => {
       clearTimeout(root);
       autoTimers.current.forEach(t => clearTimeout(t));
     };
-  }, [assignTask, removeTask]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return {
-    tickerTasks, pendingTasks,
+    tickerTasks, pendingTasks, recentEvents,
     speechBubbles, agentFlash, energyBoosts,
-    assignTask, boostEnergy, dismissTask,
+    assignTask, boostEnergy, dismissTask, logEvent: addEvent,
   };
 }
